@@ -21,7 +21,6 @@ import { ResolutionVerificationPage } from './pages/ResolutionVerificationPage';
 import { ClusterDetectionPage } from './pages/ClusterDetectionPage';
 import { MapExplorerPage } from './pages/MapExplorerPage';
 import { MunicipalPortal } from './pages/municipal/MunicipalPortal';
-import { NotificationProvider } from './context/NotificationContext';
 import { DiscussionsPage } from './pages/DiscussionsPage';
 import { ImpactScorePage } from './pages/ImpactScorePage';
 import { ProfileOptimizationPage } from './pages/ProfileOptimizationPage';
@@ -37,6 +36,7 @@ import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } 
 import { CivicSignalSubmission } from './services/signalAnalysisService';
 import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicClusterData } from './services/clusterService';
 import { DashboardSidebar, DashboardViewSection } from './components/dashboard/DashboardSidebar';
+import { NotificationProvider } from './context/NotificationContext';
 
 export type AppPageId =
   | 'platform'
@@ -656,15 +656,7 @@ export function App() {
             }}
           />
         ) : currentPage === 'municipal' ? (
-          <NotificationProvider key={authenticatedUser?.id || 'municipal-guest'}>
-            <MunicipalPortal
-              onSwitchToCitizenView={() => {
-                setAuthenticatedUser(null);
-                handleSelectPage('dashboard');
-              }}
-              authenticatedUser={authenticatedUser || undefined}
-            />
-          </NotificationProvider>
+        <NotificationProvider key={authenticatedUser?.id || 'municipal-guest'}>
           <MunicipalPortal
             onSwitchToCitizenView={() => {
               setAuthenticatedUser(null);
@@ -674,6 +666,7 @@ export function App() {
             }}
             authenticatedUser={authenticatedUser || undefined}
           />
+        </NotificationProvider>
         ) : currentPage === 'create-account' ? (
           <CreateAccountPage
             onBackToLanding={() => handleSelectPage('platform')}
