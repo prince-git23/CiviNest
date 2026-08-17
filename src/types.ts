@@ -549,3 +549,36 @@ export interface MunicipalDashboardDataset {
   departmentWorkloads: MunicipalDepartmentWorkload[];
   systemStatus: MunicipalSystemStatusData;
 }
+
+// ---------------------------------------------------------------------------
+// Municipal Notification System Types
+// ---------------------------------------------------------------------------
+
+export type MunicipalNotificationType =
+  | 'ISSUE_ASSIGNED'
+  | 'CRITICAL_ISSUE'
+  | 'SLA_WARNING'
+  | 'SLA_BREACH'
+  | 'ISSUE_UPDATED'
+  | 'RESIDENT_CONFIRMATION'
+  | 'COMMUNITY_ESCALATION'
+  | 'SYSTEM';
+
+export type MunicipalNotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface MunicipalNotification {
+  id: string;
+  type: MunicipalNotificationType;
+  title: string;
+  message: string;
+  /** ISO 8601 timestamp */
+  timestamp: string;
+  read: boolean;
+  priority: MunicipalNotificationPriority;
+  relatedIssueId?: string;
+  relatedWardId?: string;
+  relatedDepartmentId?: string;
+  actionUrl?: string;
+}
+
+export type MunicipalNotificationFilter = 'all' | 'unread' | 'issues' | 'operations' | 'system';

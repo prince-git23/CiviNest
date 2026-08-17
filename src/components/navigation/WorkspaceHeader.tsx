@@ -255,7 +255,6 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
                   onNavigateToMyFilings={() => handleTabClick('reports')}
                   onNavigateToCreateSignal={handleCreateReportClick}
                   onNavigateToImpact={() => handleTabClick('impact')}
-                  onNavigateToPublicPlatform={onNavigateLanding}
                   onSignOut={onSignOut}
                 />
               ) : (

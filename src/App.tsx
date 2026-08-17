@@ -47,6 +47,7 @@ import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } 
 import { CivicSignalSubmission } from './services/signalAnalysisService';
 import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicClusterData } from './services/clusterService';
 import { DashboardSidebar, DashboardViewSection } from './components/dashboard/DashboardSidebar';
+import { NotificationProvider } from './context/NotificationContext';
 
 export type AppPageId =
   | 'platform'
@@ -79,6 +80,7 @@ export function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [representativeSection, setRepresentativeSection] = useState<RepresentativeSection>('dashboard');
   const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('civinest_token'));
   const [accountData, setAccountData] = useState<{ fullName: string; email: string } | null>(null);
   const [representativeNotifications, setRepresentativeNotifications] = useState<NotificationItem[]>(
     () => loadNotifications()
@@ -233,41 +235,58 @@ export function App() {
     }));
   };
 
-  const handleLoginSuccess = (role: UserRoleConfig) => {
-    // Build the authenticated user from role info
+  const handleLoginSuccess = (role: UserRoleConfig, authData?: { token: string; userId: string; email: string; name: string; backendRole?: string }) => {
+    // Map backend role to frontend role ID — prefer backend role over selected role
+    const backendToFrontendRole: Record<string, string> = {
+      CITIZEN: 'resident',
+      COMMUNITY_REPRESENTATIVE: 'community_rep',
+      MUNICIPAL_OFFICER: 'municipal_officer',
+      ADMIN: 'admin',
+    };
+    const actualRoleId = authData?.backendRole
+      ? (backendToFrontendRole[authData.backendRole] || role.id)
+      : role.id;
+
+    // Build the authenticated user using the actual role from the backend
     const newUser: AuthenticatedUser = {
-      id: `user-${Date.now()}`,
-      name: dashboardData.user.name || 'User',
-      email: role.defaultEmail,
-      role: role.id,
-      permissions: ROLE_DEFAULT_PERMISSIONS[role.id] || [],
+      id: authData?.userId || `user-${Date.now()}`,
+      name: authData?.name || dashboardData.user.name || 'User',
+      email: authData?.email || role.defaultEmail,
+      role: actualRoleId as any,
+      permissions: ROLE_DEFAULT_PERMISSIONS[actualRoleId] || [],
       locality: dashboardData.user.community || 'Dharampeth',
       ward: dashboardData.user.ward || 'Ward 14',
       city: dashboardData.user.city || 'Nagpur',
-      department: role.id === 'municipal_officer' ? 'Municipal Operations' : undefined,
+      department: actualRoleId === 'municipal_officer' ? 'Municipal Operations' : undefined,
       impactScore: dashboardData.impact.points,
-      currentPortal: ROLE_PORTAL_MAP[role.id] || 'residential',
-      hasCommunityRepRole: role.id === 'community_rep',
+      currentPortal: ROLE_PORTAL_MAP[actualRoleId] || 'residential',
+      hasCommunityRepRole: actualRoleId === 'community_rep',
     };
     setAuthenticatedUser(newUser);
 
-    showToast(`Authenticated as ${role.title} (${role.label}) — Civic Intelligence Active`);
+    // Persist auth token
+    if (authData?.token) {
+      setAuthToken(authData.token);
+      localStorage.setItem('civinest_token', authData.token);
+    }
+
+    showToast(`Authenticated as ${role.title} — Civic Intelligence Active`);
     setDashboardData((prev) => ({
       ...prev,
       user: {
         ...prev.user,
+        name: newUser.name,
         role: role.title,
       },
     }));
     setTimeout(() => {
-      const targetPortal = ROLE_PORTAL_MAP[role.id];
+      const targetPortal = ROLE_PORTAL_MAP[actualRoleId];
       if (targetPortal === 'municipal') {
         setCurrentPage('municipal');
       } else if (targetPortal === 'community') {
         setCurrentPage('community-representative');
         setRepresentativeSection('dashboard');
       } else if (targetPortal === 'admin') {
-        // Admin portal — for now show municipal as placeholder
         setCurrentPage('municipal');
       } else {
         setCurrentPage('dashboard');
@@ -279,9 +298,23 @@ export function App() {
     const citizenName = data.profile.fullName.trim() || 'Prince';
     const personalized = buildDashboardFromOnboarding(data);
     setDashboardData(personalized);
+
+    // Route based on the authenticated user's actual role, not always to resident dashboard
+    const userRole = authenticatedUser?.role || 'resident';
+    const targetPortal = ROLE_PORTAL_MAP[userRole] || 'residential';
+
     showToast(`Civic node initialized for ${citizenName} in ${data.location.ward || 'Dharampeth'}!`);
     setTimeout(() => {
-      setCurrentPage('dashboard');
+      if (targetPortal === 'municipal') {
+        setCurrentPage('municipal');
+      } else if (targetPortal === 'community') {
+        setCurrentPage('community-representative');
+        setRepresentativeSection('dashboard');
+      } else if (targetPortal === 'admin') {
+        setCurrentPage('municipal');
+      } else {
+        setCurrentPage('dashboard');
+      }
     }, 800);
   };
 
@@ -460,6 +493,8 @@ export function App() {
           }}
           onSignOut={() => {
             setAuthenticatedUser(null);
+            setAuthToken(null);
+            localStorage.removeItem('civinest_token');
             setCurrentPage('platform');
             showToast('Signed out of resident workspace.');
           }}
@@ -685,20 +720,69 @@ export function App() {
             }}
           />
         ) : currentPage === 'municipal' ? (
+        <NotificationProvider key={authenticatedUser?.id || 'municipal-guest'}>
           <MunicipalPortal
             onSwitchToCitizenView={() => {
               setAuthenticatedUser(null);
+              setAuthToken(null);
+              localStorage.removeItem('civinest_token');
               handleSelectPage('dashboard');
             }}
             authenticatedUser={authenticatedUser || undefined}
           />
+        </NotificationProvider>
         ) : currentPage === 'create-account' ? (
           <CreateAccountPage
             onBackToLanding={() => handleSelectPage('platform')}
             onAccountCreated={(data) => {
               setAccountData(data);
+              // Persist token from registration
+              if (data.token) {
+                setAuthToken(data.token);
+                localStorage.setItem('civinest_token', data.token);
+              }
+
+              // Map backend role to frontend role ID
+              const backendToFrontendRole: Record<string, string> = {
+                CITIZEN: 'resident',
+                COMMUNITY_REPRESENTATIVE: 'community_rep',
+                MUNICIPAL_OFFICER: 'municipal_officer',
+                ADMIN: 'admin',
+              };
+              const frontendRoleId = backendToFrontendRole[data.role] || 'resident';
+
+              // Build authenticated user from real registration data
+              const newUser: AuthenticatedUser = {
+                id: data.userId,
+                name: data.fullName,
+                email: data.email,
+                role: frontendRoleId as any,
+                permissions: ROLE_DEFAULT_PERMISSIONS[frontendRoleId] || [],
+                locality: 'Dharampeth',
+                ward: 'Ward 14',
+                city: 'Nagpur',
+                department: frontendRoleId === 'municipal_officer' ? 'Municipal Operations' : undefined,
+                impactScore: 0,
+                currentPortal: ROLE_PORTAL_MAP[frontendRoleId] || 'residential',
+                hasCommunityRepRole: frontendRoleId === 'community_rep',
+              };
+              setAuthenticatedUser(newUser);
+
               showToast(`Account created for ${data.fullName}. Let's set up your civic profile.`);
-              setTimeout(() => setCurrentPage('onboarding'), 200);
+
+              // Route based on role: municipal/community go directly to their portal
+              const targetPortal = ROLE_PORTAL_MAP[frontendRoleId];
+              if (targetPortal === 'municipal') {
+                setTimeout(() => setCurrentPage('municipal'), 1200);
+              } else if (targetPortal === 'community') {
+                setTimeout(() => {
+                  setCurrentPage('community-representative');
+                  setRepresentativeSection('dashboard');
+                }, 1200);
+              } else {
+                // Residents go through onboarding
+                setTimeout(() => setCurrentPage('onboarding'), 1200);
+              }
             }}
             onNavigateToSignIn={() => handleSelectPage('auth')}
           />

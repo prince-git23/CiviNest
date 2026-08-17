@@ -6,7 +6,6 @@ import {
   Plus,
   Users,
   Shield,
-  ExternalLink,
   LogOut,
   Building2,
   Bell,
@@ -17,6 +16,7 @@ import {
   Lock,
   ClipboardList,
   Map,
+  ExternalLink,
 } from 'lucide-react';
 import type { AuthenticatedUser, PortalId, UserRoleId } from '../../types';
 
@@ -40,6 +40,7 @@ interface ProfileDropdownProps {
   hidePublicPlatformSwitch?: boolean;
   /** Override the avatar rendering (defaults to user initials) */
   avatarIcon?: React.ReactNode;
+  onNavigateToNotifications?: () => void;
   onSignOut?: () => void;
 }
 
@@ -58,6 +59,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   hideResidentActions = false,
   hidePublicPlatformSwitch = false,
   avatarIcon,
+  onNavigateToNotifications,
   onSignOut,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -242,11 +244,11 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                     onClick={() => { close(); onNavigateToMunicipal(); }}
                   />
                 )}
-                {onNavigateToPublicPlatform && user.currentPortal !== 'residential' && (
+                {onNavigateToNotifications && (
                   <DropdownItem
                     icon={<Bell className="w-3.5 h-3.5 text-slate-400" />}
                     label="Notifications"
-                    onClick={() => { close(); }}
+                    onClick={() => { close(); onNavigateToNotifications(); }}
                   />
                 )}
               </>
