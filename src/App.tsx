@@ -20,11 +20,14 @@ import { ResolutionVerificationPage } from './pages/ResolutionVerificationPage';
 import { ClusterDetectionPage } from './pages/ClusterDetectionPage';
 import { MapExplorerPage } from './pages/MapExplorerPage';
 import { MunicipalDashboard } from './pages/MunicipalDashboard';
+import { DiscussionsPage } from './pages/DiscussionsPage';
+import { ImpactScorePage } from './pages/ImpactScorePage';
+import { ProfileOptimizationPage } from './pages/ProfileOptimizationPage';
 import { OnboardingFormData, UserRoleConfig, DashboardReportItem, ResolutionVerificationInfo } from './types';
 import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } from './data/dashboardData';
 import { CivicSignalSubmission } from './services/signalAnalysisService';
 import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicClusterData } from './services/clusterService';
-import { DashboardViewSection } from './components/dashboard/DashboardSidebar';
+import { DashboardSidebar, DashboardViewSection } from './components/dashboard/DashboardSidebar';
 
 export type AppPageId =
   | 'platform'
@@ -38,7 +41,10 @@ export type AppPageId =
   | 'my-reports'
   | 'verification'
   | 'cluster-detection'
-  | 'map-explorer';
+  | 'map-explorer'
+  | 'discussions'
+  | 'impact-score'
+  | 'profile-optimization';
 
 export function App() {
   // CRITICAL REQUIREMENT: Application entry MUST be the public landing platform
@@ -85,11 +91,9 @@ export function App() {
     } else if (tab === 'reports') {
       setCurrentPage('my-reports');
     } else if (tab === 'community') {
-      setDashboardActiveSection('discussions');
-      setCurrentPage('dashboard');
+      setCurrentPage('discussions');
     } else if (tab === 'impact') {
-      setDashboardActiveSection('impact');
-      setCurrentPage('dashboard');
+      setCurrentPage('impact-score');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -278,6 +282,9 @@ export function App() {
   const getActiveWorkspaceTab = (): WorkspaceTabId => {
     if (currentPage === 'map-explorer') return 'explore';
     if (currentPage === 'my-reports') return 'reports';
+    if (currentPage === 'discussions') return 'community';
+    if (currentPage === 'impact-score') return 'impact';
+    if (currentPage === 'profile-optimization') return 'profile';
     if (currentPage === 'dashboard') {
       if (dashboardActiveSection === 'map') return 'explore';
       if (dashboardActiveSection === 'filings') return 'reports';
@@ -288,8 +295,38 @@ export function App() {
     return 'home';
   };
 
+  // Convert current page to sidebar section
+  const getActiveSidebarSection = (): DashboardViewSection => {
+    if (currentPage === 'dashboard') return 'overview';
+    if (currentPage === 'map-explorer') return 'map';
+    if (currentPage === 'my-reports') return 'filings';
+    if (currentPage === 'discussions') return 'discussions';
+    if (currentPage === 'impact-score') return 'impact';
+    if (currentPage === 'profile-optimization') return 'profile';
+    return 'overview';
+  };
+
+  const handleSelectSidebarSection = (section: DashboardViewSection) => {
+    if (section === 'overview') {
+      setDashboardActiveSection('overview');
+      setCurrentPage('dashboard');
+    } else if (section === 'map') {
+      setCurrentPage('map-explorer');
+    } else if (section === 'filings') {
+      setCurrentPage('my-reports');
+    } else if (section === 'discussions') {
+      setCurrentPage('discussions');
+    } else if (section === 'impact') {
+      setCurrentPage('impact-score');
+    } else if (section === 'profile') {
+      setCurrentPage('profile-optimization');
+    }
+  };
+
   const isPublicContext = currentPage === 'platform' || currentPage === 'how-it-works';
-  const isWorkspaceContext = currentPage === 'dashboard' || currentPage === 'my-reports' || currentPage === 'map-explorer';
+  const isWorkspaceContext = currentPage === 'dashboard' || currentPage === 'my-reports' || currentPage === 'map-explorer' || currentPage === 'discussions' || currentPage === 'impact-score' || currentPage === 'profile-optimization';
+
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#FBFBFA] text-[#111827] flex flex-col selection:bg-[#0F1E36] selection:text-white font-sans">
@@ -317,10 +354,10 @@ export function App() {
         />
       )}
 
-      {/* 2. RESIDENT WORKSPACE NAVIGATION CONTEXT (Rendered on My Reports and Map Explorer; ResidentDashboard has internal header) */}
-      {(currentPage === 'my-reports' || currentPage === 'map-explorer') && (
+      {/* 2. RESIDENT WORKSPACE NAVIGATION CONTEXT (Rendered on all Workspace Pages) */}
+      {isWorkspaceContext && (
         <WorkspaceHeader
-          activeTab={getActiveWorkspaceTab()}
+          activeTab={getActiveWorkspaceTab() as any}
           onSelectTab={handleSelectWorkspaceTab}
           userName={dashboardData.user.name}
           userWard={dashboardData.user.ward}
@@ -334,6 +371,10 @@ export function App() {
           onNavigateToMunicipal={() => {
             handleSelectPage('municipal');
           }}
+          onNavigateToProfile={() => {
+            setCurrentPage('profile-optimization');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onSignOut={() => {
             setCurrentPage('platform');
             showToast('Signed out of resident workspace.');
@@ -342,158 +383,231 @@ export function App() {
       )}
 
       {/* 3. MAIN PAGE CONTENT ROUTER */}
-      {currentPage === 'map-explorer' ? (
-        <MapExplorerPage
-          userContext={dashboardData.user}
-          onOpenReportModal={() => setReportModalOpen(true)}
-          onNavigate={(page) => handleSelectPage(page)}
-        />
-      ) : currentPage === 'cluster-detection' ? (
-        <ClusterDetectionPage
-          initialCluster={activeCluster}
-          userData={dashboardData.user}
-          onSelectTab={(tab) => {
-            if (tab === 'reports') setCurrentPage('my-reports');
-            else if (tab === 'home') setCurrentPage('dashboard');
-            else if (tab === 'explore') setCurrentPage('map-explorer');
-          }}
-          onNavigateSection={(section) => {
-            setDashboardActiveSection(section);
-            setCurrentPage('dashboard');
-          }}
-          onNavigateToPlatform={() => handleSelectPage('platform')}
-          onNavigateToReports={handleNavigateToReports}
-          onNavigateToCreateSignal={() => setCurrentPage('create-signal')}
-          onNavigateToAnalysis={() => setCurrentPage('signal-analysis')}
-          onBackToDashboard={() => {
-            setDashboardActiveSection('overview');
-            setCurrentPage('dashboard');
-          }}
-          onClusterConfirmed={handleClusterConfirmed}
-          onOpenReportModal={() => setReportModalOpen(true)}
-        />
-      ) : currentPage === 'verification' ? (
-        <ResolutionVerificationPage
-          dashboardData={dashboardData}
-          selectedReport={selectedVerificationReport}
-          onNavigateBack={handleNavigateToReports}
-          onNavigateToDashboard={() => {
-            setDashboardActiveSection('overview');
-            setCurrentPage('dashboard');
-          }}
-          onNavigateToMapExplorer={handleNavigateToMapExplorer}
-          onVerificationCompleted={handleVerificationCompleted}
-          onShowToast={showToast}
-        />
-      ) : currentPage === 'my-reports' ? (
-        <MyReportsPage
-          dashboardData={dashboardData}
-          onNavigateToCreateSignal={() => setCurrentPage('create-signal')}
-          onNavigateToDashboard={() => {
-            setDashboardActiveSection('overview');
-            setCurrentPage('dashboard');
-          }}
-          onNavigateToMapExplorer={handleNavigateToMapExplorer}
-          onOpenVerificationPage={handleOpenVerificationPage}
-          onUpdateReports={handleUpdateReports}
-          onShowToast={showToast}
-        />
-      ) : currentPage === 'signal-analysis' ? (
-        <SignalAnalysisPage
-          initialSubmission={currentSignalDraft || undefined}
-          onEditReport={() => setCurrentPage('create-signal')}
-          onConfirmAndSubmit={handleSignalSubmissionCompleted}
-          onNavigateToDashboard={() => {
-            setDashboardActiveSection('overview');
-            setCurrentPage('dashboard');
-          }}
-          onNavigateToExplore={() => setCurrentPage('map-explorer')}
-          onNavigateToReports={handleNavigateToReports}
-          onNavigateToCommunity={() => {
-            setDashboardActiveSection('discussions');
-            setCurrentPage('dashboard');
-          }}
-          onNavigateToImpact={() => {
-            setDashboardActiveSection('impact');
-            setCurrentPage('dashboard');
-          }}
-        />
-      ) : currentPage === 'create-signal' ? (
-        <CreateCivicSignalPage
-          onBackToDashboard={() => handleSelectPage('dashboard')}
-          onNavigateToPlatform={() => handleSelectPage('platform')}
-          onNavigateToAuth={() => handleSelectPage('auth')}
-          onNavigateToAnalysis={handleDraftToAnalysis}
-          onSignalSubmitted={handleSignalSubmissionCompleted}
-          initialDraft={currentSignalDraft || undefined}
-          initialLocation={{
-            address: `${dashboardData.user.community}, ${dashboardData.user.city}`,
-            ward: dashboardData.user.ward,
-            city: dashboardData.user.city,
-            accuracy: 'Approx. 15m accuracy',
-            coordinates: { lat: 21.1458, lng: 79.0882 },
-          }}
-        />
-      ) : currentPage === 'municipal' ? (
-        <MunicipalDashboard
-          onNavigateToPlatform={() => handleSelectPage('platform')}
-          onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
-          onNavigateToCityMap={handleNavigateToMapExplorer}
-          onNavigateToResidentDashboard={() => handleSelectPage('dashboard')}
-          onShowToast={showToast}
-          userName={dashboardData.user.name || 'Admin User'}
-          userRole={dashboardData.user.role || 'Municipal Director'}
-        />
-      ) : currentPage === 'dashboard' ? (
-        <ResidentDashboard
-          initialData={dashboardData}
-          initialSection={dashboardActiveSection}
-          onNavigateToPlatform={() => handleSelectPage('platform')}
-          onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
-          onNavigateToAuth={() => handleSelectPage('auth')}
-          onNavigateToCreateSignal={() => handleSelectPage('create-signal')}
-          onNavigateToMunicipal={() => handleSelectPage('municipal')}
-        />
-      ) : currentPage === 'onboarding' ? (
-        <OnboardingPage
-          onBackToPlatform={() => handleSelectPage('platform')}
-          onComplete={handleOnboardingComplete}
-        />
-      ) : currentPage === 'auth' ? (
-        <AuthPage
-          onBackToCiviNest={() => handleSelectPage('platform')}
-          onNavigateToOnboarding={() => handleSelectPage('onboarding')}
-          onLoginSuccess={handleLoginSuccess}
-        />
-      ) : currentPage === 'how-it-works' ? (
-        <HowItWorksPage
-          onOpenReportModal={() => setReportModalOpen(true)}
-          onNavigateToPlatform={() => handleSelectPage('platform')}
-        />
+      {isWorkspaceContext ? (
+        <div className="flex flex-col flex-1">
+          {/* Mobile Sidebar Toggle Button */}
+          <div className="lg:hidden px-4 py-2 bg-[#F3F4F6] border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="flex items-center gap-2 text-xs font-semibold text-[#374151] px-2.5 py-1.5 rounded-lg bg-white border border-[#E5E7EB]"
+            >
+              <span className="capitalize">{getActiveSidebarSection()} Menu</span>
+            </button>
+            <span className="text-[11px] font-mono text-[#6B7280]">
+              {dashboardData.user.ward} · {dashboardData.user.community}
+            </span>
+          </div>
+
+          <div className="max-w-[1600px] mx-auto w-full flex flex-1">
+            {/* Desktop Persistent Sidebar */}
+            <DashboardSidebar
+              activeSection={getActiveSidebarSection()}
+              onSelectSection={handleSelectSidebarSection}
+              localityName={dashboardData.user.community}
+              wardName={dashboardData.user.ward}
+            />
+
+            {/* Mobile Drawer */}
+            {mobileDrawerOpen && (
+              <div className="fixed inset-0 z-50 lg:hidden bg-black/40 backdrop-blur-sm flex">
+                <div className="w-72 bg-[#FBFBFA] h-full shadow-2xl relative">
+                  <button
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="absolute top-4 right-4 p-1.5 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-200"
+                  >
+                    X
+                  </button>
+                  <DashboardSidebar
+                    activeSection={getActiveSidebarSection()}
+                    onSelectSection={(sec) => {
+                      handleSelectSidebarSection(sec);
+                      setMobileDrawerOpen(false);
+                    }}
+                    localityName={dashboardData.user.community}
+                    wardName={dashboardData.user.ward}
+                    isMobileDrawer={true}
+                    onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
+                  />
+                </div>
+                <div className="flex-1" onClick={() => setMobileDrawerOpen(false)} />
+              </div>
+            )}
+
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+              {currentPage === 'dashboard' ? (
+                <ResidentDashboard
+                  initialData={dashboardData}
+                  onNavigateToPlatform={() => handleSelectPage('platform')}
+                  onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
+                  onNavigateToAuth={() => handleSelectPage('auth')}
+                  onNavigateToCreateSignal={() => handleSelectPage('create-signal')}
+                  onNavigateToMunicipal={() => handleSelectPage('municipal')}
+                />
+              ) : currentPage === 'map-explorer' ? (
+                <MapExplorerPage
+                  userContext={dashboardData.user}
+                  onOpenReportModal={() => setReportModalOpen(true)}
+                  onNavigate={(page) => handleSelectPage(page)}
+                />
+              ) : currentPage === 'my-reports' ? (
+                <MyReportsPage
+                  dashboardData={dashboardData}
+                  onNavigateToCreateSignal={() => setCurrentPage('create-signal')}
+                  onNavigateToDashboard={() => {
+                    handleSelectPage('dashboard');
+                  }}
+                  onNavigateToMapExplorer={handleNavigateToMapExplorer}
+                  onOpenVerificationPage={handleOpenVerificationPage}
+                  onUpdateReports={handleUpdateReports}
+                  onShowToast={showToast}
+                />
+              ) : currentPage === 'discussions' ? (
+                <DiscussionsPage
+                  userContext={dashboardData.user}
+                  onNavigateToIssue={(issueId) => {
+                    showToast(`Opening issue ${issueId}...`);
+                  }}
+                  onOpenReportModal={() => setReportModalOpen(true)}
+                />
+              ) : currentPage === 'impact-score' ? (
+                <ImpactScorePage
+                  userContext={dashboardData.user}
+                  onNavigateToReports={() => setCurrentPage('my-reports')}
+                  onNavigateToMap={() => setCurrentPage('map-explorer')}
+                />
+              ) : currentPage === 'profile-optimization' ? (
+                <ProfileOptimizationPage
+                  userContext={dashboardData.user}
+                />
+              ) : null}
+            </main>
+          </div>
+        </div>
       ) : (
-        <main className="flex-1">
-          {/* Public Landing Hero Section */}
-          <HeroSection
-            onExplore={() => handleNavigateSection('intelligence')}
-            onHowItWorks={() => handleSelectPage('how-it-works')}
+        currentPage === 'cluster-detection' ? (
+          <ClusterDetectionPage
+            initialCluster={activeCluster}
+            userData={dashboardData.user}
+            onSelectTab={(tab) => {
+              if (tab === 'reports') setCurrentPage('my-reports');
+              else if (tab === 'home') setCurrentPage('dashboard');
+              else if (tab === 'explore') setCurrentPage('map-explorer');
+            }}
+            onNavigateSection={(section) => {
+              setDashboardActiveSection(section);
+              setCurrentPage('dashboard');
+            }}
+            onNavigateToPlatform={() => handleSelectPage('platform')}
+            onNavigateToReports={handleNavigateToReports}
+            onNavigateToCreateSignal={() => setCurrentPage('create-signal')}
+            onNavigateToAnalysis={() => setCurrentPage('signal-analysis')}
+            onBackToDashboard={() => {
+              setDashboardActiveSection('overview');
+              setCurrentPage('dashboard');
+            }}
+            onClusterConfirmed={handleClusterConfirmed}
             onOpenReportModal={() => setReportModalOpen(true)}
           />
+        ) : currentPage === 'verification' ? (
+          <ResolutionVerificationPage
+            dashboardData={dashboardData}
+            selectedReport={selectedVerificationReport}
+            onNavigateBack={handleNavigateToReports}
+            onNavigateToDashboard={() => {
+              setDashboardActiveSection('overview');
+              setCurrentPage('dashboard');
+            }}
+            onNavigateToMapExplorer={handleNavigateToMapExplorer}
+            onVerificationCompleted={handleVerificationCompleted}
+            onShowToast={showToast}
+          />
+        ) : currentPage === 'signal-analysis' ? (
+          <SignalAnalysisPage
+            initialSubmission={currentSignalDraft || undefined}
+            onEditReport={() => setCurrentPage('create-signal')}
+            onConfirmAndSubmit={handleSignalSubmissionCompleted}
+            onNavigateToDashboard={() => {
+              setDashboardActiveSection('overview');
+              setCurrentPage('dashboard');
+            }}
+            onNavigateToExplore={() => setCurrentPage('map-explorer')}
+            onNavigateToReports={handleNavigateToReports}
+            onNavigateToCommunity={() => {
+              setDashboardActiveSection('discussions');
+              setCurrentPage('dashboard');
+            }}
+            onNavigateToImpact={() => {
+              setDashboardActiveSection('impact');
+              setCurrentPage('dashboard');
+            }}
+          />
+        ) : currentPage === 'create-signal' ? (
+          <CreateCivicSignalPage
+            onBackToDashboard={() => handleSelectPage('dashboard')}
+            onNavigateToPlatform={() => handleSelectPage('platform')}
+            onNavigateToAuth={() => handleSelectPage('auth')}
+            onNavigateToAnalysis={handleDraftToAnalysis}
+            onSignalSubmitted={handleSignalSubmissionCompleted}
+            initialDraft={currentSignalDraft || undefined}
+            initialLocation={{
+              address: `${dashboardData.user.community}, ${dashboardData.user.city}`,
+              ward: dashboardData.user.ward,
+              city: dashboardData.user.city,
+              accuracy: 'Approx. 15m accuracy',
+              coordinates: { lat: 21.1458, lng: 79.0882 },
+            }}
+          />
+        ) : currentPage === 'municipal' ? (
+          <MunicipalDashboard
+            onNavigateToPlatform={() => handleSelectPage('platform')}
+            onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
+            onNavigateToCityMap={handleNavigateToMapExplorer}
+            onNavigateToResidentDashboard={() => handleSelectPage('dashboard')}
+            onShowToast={showToast}
+            userName={dashboardData.user.name || 'Admin User'}
+            userRole={dashboardData.user.role || 'Municipal Director'}
+          />
+        ) : currentPage === 'onboarding' ? (
+          <OnboardingPage
+            onBackToPlatform={() => handleSelectPage('platform')}
+            onComplete={handleOnboardingComplete}
+          />
+        ) : currentPage === 'auth' ? (
+          <AuthPage
+            onBackToCiviNest={() => handleSelectPage('platform')}
+            onNavigateToOnboarding={() => handleSelectPage('onboarding')}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        ) : currentPage === 'how-it-works' ? (
+          <HowItWorksPage
+            onOpenReportModal={() => setReportModalOpen(true)}
+            onNavigateToPlatform={() => handleSelectPage('platform')}
+          />
+        ) : (
+          <main className="flex-1">
+            {/* Public Landing Hero Section */}
+            <HeroSection
+              onExplore={() => handleNavigateSection('intelligence')}
+              onHowItWorks={() => handleSelectPage('how-it-works')}
+              onOpenReportModal={() => setReportModalOpen(true)}
+            />
 
-          {/* Raw Signals to Verified Context Transformation */}
-          <NoiseToContextSection />
+            {/* Raw Signals to Verified Context Transformation */}
+            <NoiseToContextSection />
 
-          {/* Systematic 5-Step Process */}
-          <ProcessSection />
+            {/* Systematic 5-Step Process */}
+            <ProcessSection />
 
-          {/* Spatial Intelligence & Ward Heatmap GIS */}
-          <SpatialIntelligenceSection />
+            {/* Spatial Intelligence & Ward Heatmap GIS */}
+            <SpatialIntelligenceSection />
 
-          {/* Stakeholder Ecosystem */}
-          <StakeholdersSection />
+            {/* Stakeholder Ecosystem */}
+            <StakeholdersSection />
 
-          {/* Human Oversight & Transparent Audit Trail */}
-          <TrustSection />
-        </main>
+            {/* Human Oversight & Transparent Audit Trail */}
+            <TrustSection />
+          </main>
+        )
       )}
 
       {/* Footer (Only on Public pages: Platform and How It Works) */}

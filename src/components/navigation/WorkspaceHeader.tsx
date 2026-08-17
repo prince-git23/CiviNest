@@ -22,7 +22,7 @@ import { CiviNestLogo } from '../common/CiviNestLogo';
 import { NavigationLink } from './NavigationLink';
 import { NavigationAction } from './NavigationAction';
 
-export type WorkspaceTabId = 'home' | 'explore' | 'reports' | 'community' | 'impact';
+export type WorkspaceTabId = 'home' | 'explore' | 'reports' | 'community' | 'impact' | 'profile';
 
 export interface WorkspaceHeaderProps {
   activeTab: WorkspaceTabId;
@@ -34,6 +34,7 @@ export interface WorkspaceHeaderProps {
   onNavigateToCreateSignal?: () => void;
   onNavigateLanding?: () => void;
   onNavigateToMunicipal?: () => void;
+  onNavigateToProfile?: () => void;
   onSignOut?: () => void;
 }
 
@@ -47,6 +48,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onNavigateToCreateSignal,
   onNavigateLanding,
   onNavigateToMunicipal,
+  onNavigateToProfile,
   onSignOut,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -89,6 +91,13 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
     { id: 'community', label: 'Community', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'impact', label: 'Impact', icon: <Award className="w-3.5 h-3.5" /> },
   ];
+
+  const handleProfileClick = () => {
+    setProfileMenuOpen(false);
+    if (onNavigateToProfile) {
+      onNavigateToProfile();
+    }
+  };
 
   const handleTabClick = (tab: WorkspaceTabId) => {
     setMobileMenuOpen(false);

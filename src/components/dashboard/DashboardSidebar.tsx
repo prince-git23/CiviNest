@@ -10,7 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 
-export type DashboardViewSection = 'overview' | 'map' | 'filings' | 'discussions' | 'impact';
+export type DashboardViewSection = 'overview' | 'map' | 'filings' | 'discussions' | 'impact' | 'profile';
 
 interface DashboardSidebarProps {
   activeSection: DashboardViewSection;
@@ -61,6 +61,11 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       id: 'impact',
       label: 'Impact Score',
       icon: TrendingUp,
+    },
+    {
+      id: 'profile',
+      label: 'Profile Optimization',
+      icon: ShieldCheck,
     },
   ];
 
