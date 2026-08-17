@@ -9,21 +9,29 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
+  Shield,
+  Building2,
+  Users,
+  ChevronRight,
 } from 'lucide-react';
 import { CiviNestLogo } from '../components/common/CiviNestLogo';
 import { TrustIndicators } from '../components/auth/TrustIndicators';
+import { registerUser } from '../services/api';
 
 interface CreateAccountPageProps {
   onBackToLanding: () => void;
-  onAccountCreated: (accountData: { fullName: string; email: string }) => void;
+  onAccountCreated: (accountData: { fullName: string; email: string; token: string; role: string; userId: string }) => void;
   onNavigateToSignIn: () => void;
 }
+
+type UserRole = 'resident' | 'community_rep' | 'municipal_officer';
 
 interface FormErrors {
   fullName?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
+  role?: string;
 }
 
 export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
@@ -41,6 +49,8 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('resident');
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +67,10 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
   const validate = (checkAll = false): FormErrors => {
     const newErrors: FormErrors = {};
     const shouldCheck = (field: string) => checkAll || touched[field];
+
+    if (shouldCheck('role') && !selectedRole) {
+      newErrors.role = 'Please select how you will use CiviNest.';
+    }
 
     if (shouldCheck('fullName')) {
       if (!fullName.trim()) {
@@ -99,28 +113,49 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
     setErrors(fieldErrors);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Touch all fields
-    setTouched({ fullName: true, email: true, password: true, confirmPassword: true });
+    setTouched({ fullName: true, email: true, password: true, confirmPassword: true, role: true });
     const fieldErrors = validate(true);
     setErrors(fieldErrors);
 
     if (Object.keys(fieldErrors).length > 0) return;
 
     setIsLoading(true);
+    setApiError(null);
 
-    // Simulate account creation
-    setTimeout(() => {
+    try {
+      // Map frontend role IDs to backend role values
+      const frontendToBackendRole: Record<UserRole, string> = {
+        resident: 'CITIZEN',
+        community_rep: 'COMMUNITY_REPRESENTATIVE',
+        municipal_officer: 'MUNICIPAL_OFFICER',
+      };
+
+      const result = await registerUser({
+        name: fullName.trim(),
+        email: email.trim(),
+        password,
+        role: frontendToBackendRole[selectedRole],
+      });
+
       setIsLoading(false);
       setIsSuccess(true);
+
       setTimeout(() => {
         onAccountCreated({
-          fullName: fullName.trim(),
-          email: email.trim(),
+          fullName: result.user.name,
+          email: result.user.email,
+          token: result.token,
+          role: result.user.role,
+          userId: result.user._id,
         });
       }, 1200);
-    }, 800);
+    } catch (error: any) {
+      setIsLoading(false);
+      setApiError(error.message || 'Registration failed. Please try again.');
+    }
   };
 
   // Password strength indicator
@@ -314,6 +349,59 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
                   )}
                 </div>
 
+                {/* Role Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#374151] mb-2">
+                    I will use CiviNest as a
+                  </label>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {(
+                      [
+                        { id: 'resident' as UserRole, label: 'Resident', desc: 'Report issues, track resolutions, verify fixes', icon: User, color: 'blue' },
+                        { id: 'community_rep' as UserRole, label: 'Community Representative', desc: 'Coordinate concerns, oversee local clusters', icon: Users, color: 'emerald' },
+                        { id: 'municipal_officer' as UserRole, label: 'Municipal Officer', desc: 'Review intelligence, assign departments, track SLA', icon: Building2, color: 'amber' },
+                      ]
+                    ).map((role) => {
+                      const Icon = role.icon;
+                      const isSelected = selectedRole === role.id;
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedRole(role.id);
+                            if (errors.role) setErrors((prev) => ({ ...prev, role: undefined }));
+                          }}
+                          className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                            isSelected
+                              ? 'bg-white border-[#2563EB] ring-2 ring-[#2563EB]/15 shadow-sm'
+                              : 'bg-[#F9FAFB] border-[#E5E7EB] hover:border-[#CBD5E1] hover:bg-white'
+                          }`}
+                        >
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-[#2563EB] text-white' : 'bg-[#E5E7EB] text-[#6B7280]'
+                          }`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-[#0F1E36] block">{role.label}</span>
+                            <span className="text-[11px] text-[#6B7280] leading-tight block">{role.desc}</span>
+                          </div>
+                          <ChevronRight className={`w-4 h-4 shrink-0 transition-colors ${
+                            isSelected ? 'text-[#2563EB]' : 'text-[#CBD5E1]'
+                          }`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.role && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.role}
+                    </p>
+                  )}
+                </div>
+
                 {/* Confirm Password */}
                 <div>
                   <label className="block text-xs font-semibold text-[#374151] mb-1.5">
@@ -358,9 +446,16 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
                 </div>
 
                 {/* Error summary */}
-                {errors.fullName && errors.email && errors.password && errors.confirmPassword && (
+                {(errors.fullName && errors.email && errors.password && errors.confirmPassword) && (
                   <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
                     Please fix the errors above to create your account.
+                  </div>
+                )}
+
+                {/* API Error */}
+                {apiError && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+                    {apiError}
                   </div>
                 )}
 

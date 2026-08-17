@@ -12,7 +12,7 @@ interface AuthPageProps {
   onBackToCiviNest: () => void;
   onNavigateToOnboarding?: () => void;
   onNavigateToCreateAccount?: () => void;
-  onLoginSuccess?: (role: UserRoleConfig) => void;
+  onLoginSuccess?: (role: UserRoleConfig, authData?: { token: string; userId: string; email: string; name: string; backendRole?: string }) => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
@@ -110,9 +110,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <LoginForm
                 role={selectedRole}
                 onChangeRole={handleChangeRole}
-                onLoginSuccess={(role) => {
+                onLoginSuccess={(role, authData) => {
                   if (onLoginSuccess) {
-                    onLoginSuccess(role);
+                    onLoginSuccess(role, authData);
                   } else {
                     onBackToCiviNest();
                   }
