@@ -1,0 +1,10 @@
+{
+  "name": "Remix CiviNest",
+  "description": "AI-Powered Civic Intelligence Platform turning citizen signals into verified, prioritized civic narratives and government action.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
