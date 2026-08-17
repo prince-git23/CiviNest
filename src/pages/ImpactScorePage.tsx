@@ -121,6 +121,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
   onNavigateToReports,
   onNavigateToMap,
 }) => {
+  const [profile, setProfile] = useState<ImpactScoreProfile>(impactData);
   const [animatedScore, setAnimatedScore] = useState(0);
   const [animatedMetrics, setAnimatedMetrics] = useState<Record<string, number>>({});
   const pageRef = useRef<HTMLDivElement>(null);
@@ -137,7 +138,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
     }
 
     gsap.to({ score: 0 }, {
-      score: impactData.totalScore,
+      score: profile.totalScore,
       duration: 1.5,
       ease: 'power2.out',
       onUpdate: function() {
@@ -146,12 +147,12 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
     });
 
     const initialMetrics: Record<string, number> = {};
-    impactData.metrics.forEach((m) => {
+    profile.metrics.forEach((m) => {
       initialMetrics[m.id] = 0;
     });
     setAnimatedMetrics(initialMetrics);
 
-    impactData.metrics.forEach((metric, index) => {
+    profile.metrics.forEach((metric, index) => {
       gsap.to({ value: 0 }, {
         value: metric.value,
         duration: 1.2,
@@ -165,9 +166,9 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
         },
       });
     });
-  }, [impactData]);
+  }, [profile]);
 
-  const maxTimelinePoints = Math.max(...impactData.timeline.map((t) => t.cumulative));
+  const maxTimelinePoints = Math.max(...profile.timeline.map((t) => t.cumulative));
 
   return (
     <div ref={pageRef} className="min-h-screen bg-[#FBFBFA]">
@@ -200,7 +201,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
               <div className="mt-4 flex items-center gap-3">
                 <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
                   <span className="text-xs text-slate-300">Level</span>
-                  <p className="text-lg font-bold">{impactData.level}</p>
+                  <p className="text-lg font-bold">{profile.level}</p>
                 </div>
                 <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
                   <span className="text-xs text-slate-300">Progress to Next</span>
@@ -208,10 +209,10 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
                     <div className="w-20 h-2 bg-white/20 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-blue-400 rounded-full transition-all duration-1000"
-                        style={{ width: `${impactData.progressToNextLevel / 2.5}%` }}
+                        style={{ width: `${profile.progressToNextLevel / 2.5}%` }}
                       />
                     </div>
-                    <span className="text-xs font-mono">{impactData.progressToNextLevel}/250</span>
+                    <span className="text-xs font-mono">{profile.progressToNextLevel}/250</span>
                   </div>
                 </div>
               </div>
@@ -232,7 +233,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {impactData.metrics.map((metric) => (
+                {profile.metrics.map((metric) => (
                   <div
                     key={metric.id}
                     className="p-4 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] hover:shadow-sm transition-shadow"
@@ -274,7 +275,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
 
               <div ref={chartRef} className="h-40 relative">
                 <div className="absolute inset-0 flex items-end justify-between gap-2 px-2">
-                  {impactData.timeline.map((point, index) => (
+                  {profile.timeline.map((point, index) => (
                     <div key={index} className="flex-1 flex flex-col items-center gap-1">
                       <div 
                         className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg transition-all duration-700"
@@ -287,7 +288,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
                   ))}
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 pt-8 border-t border-[#F3F4F6]">
-                  {impactData.timeline.map((point, index) => (
+                  {profile.timeline.map((point, index) => (
                     <span key={index} className="text-[10px] text-[#9CA3AF] flex-1 text-center">
                       {point.date}
                     </span>
@@ -305,7 +306,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
               </div>
 
               <div className="space-y-3">
-                {impactData.history.slice(0, 6).map((item) => (
+                {profile.history.slice(0, 6).map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between p-3 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] hover:shadow-sm transition-shadow"
@@ -349,25 +350,25 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#F9FAFB]">
                   <span className="text-xs text-[#6B7280]">Issues Influenced</span>
                   <span className="text-lg font-bold font-mono text-[#0F1E36]">
-                    {impactData.communityImpact.issuesInfluenced}
+                    {profile.communityImpact.issuesInfluenced}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#F9FAFB]">
                   <span className="text-xs text-[#6B7280]">Verified Contributions</span>
                   <span className="text-lg font-bold font-mono text-[#0F1E36]">
-                    {impactData.communityImpact.verifiedContributions}
+                    {profile.communityImpact.verifiedContributions}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#F9FAFB]">
                   <span className="text-xs text-[#6B7280]">Resolutions Verified</span>
                   <span className="text-lg font-bold font-mono text-emerald-600">
-                    {impactData.communityImpact.resolutionsVerified}
+                    {profile.communityImpact.resolutionsVerified}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#F9FAFB]">
                   <span className="text-xs text-[#6B7280]">Community Confirmations</span>
                   <span className="text-lg font-bold font-mono text-blue-600">
-                    {impactData.communityImpact.communityConfirmations}
+                    {profile.communityImpact.communityConfirmations}
                   </span>
                 </div>
               </div>
@@ -375,11 +376,11 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
               <div className="mt-4 pt-4 border-t border-[#E5E7EB] grid grid-cols-2 gap-3">
                 <div className="text-center p-3 rounded-xl bg-blue-50 border border-blue-100">
                   <p className="text-[10px] text-blue-600 font-semibold">Local Rank</p>
-                  <p className="text-2xl font-bold text-blue-700">#{impactData.communityImpact.localRank}</p>
+                  <p className="text-2xl font-bold text-blue-700">#{profile.communityImpact.localRank}</p>
                 </div>
                 <div className="text-center p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <p className="text-[10px] text-slate-600 font-semibold">Ward Rank</p>
-                  <p className="text-2xl font-bold text-slate-700">#{impactData.communityImpact.wardRank}</p>
+                  <p className="text-2xl font-bold text-slate-700">#{profile.communityImpact.wardRank}</p>
                 </div>
               </div>
             </div>
@@ -391,7 +392,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
               </div>
 
               <div className="space-y-3">
-                {impactData.badges.map((badge) => (
+                {profile.badges.map((badge) => (
                   <div
                     key={badge.id}
                     className={`p-3 rounded-xl border ${
@@ -431,7 +432,7 @@ export const ImpactScorePage: React.FC<ImpactScorePageProps> = ({
               </div>
 
               <div className="space-y-3">
-                {impactData.contributions.map((contrib) => (
+                {profile.contributions.map((contrib) => (
                   <div key={contrib.category} className="flex items-center gap-3">
                     <div 
                       className="w-8 h-8 rounded-lg flex items-center justify-center"

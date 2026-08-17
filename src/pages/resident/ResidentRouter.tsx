@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ResidentShell } from '../../components/resident/ResidentShell';
 import ResidentDashboard from '../ResidentDashboard';
 import { CreateReportPage } from '../CreateReportPage';
@@ -28,6 +28,7 @@ export const ResidentRouter: React.FC<ResidentRouterProps> = ({
   onSignOut,
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardDataset>(defaultDashboardData);
 
   // Redirect unauthenticated users to auth
@@ -96,7 +97,7 @@ export const ResidentRouter: React.FC<ResidentRouterProps> = ({
         <Route path="community" element={
           <DiscussionsPage
             userContext={dashboardData.user}
-            onNavigateToIssue={() => {}}
+            onNavigateToIssue={(issueId) => navigate(`/resident/reports/${issueId}`)}
             onOpenReportModal={() => {}}
           />
         } />

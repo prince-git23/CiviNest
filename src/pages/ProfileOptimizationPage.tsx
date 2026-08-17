@@ -28,17 +28,21 @@ import {
   Edit3,
   Award,
   Clock,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import {
   ProfileOptimizationData,
   ProfilePreference,
   NotificationPreference,
   PrivacySetting,
+  ProfileIdentity,
   defaultProfileData,
   calculateCompletionPercentage,
   getProfileStrengthLabel,
   getVerificationBadgeColor,
 } from '../services/profileService';
+import { updateProfile } from '../services/api';
 
 interface ProfileOptimizationPageProps {
   userContext?: {
@@ -106,6 +110,87 @@ export const ProfileOptimizationPage: React.FC<ProfileOptimizationPageProps> = (
   const [privacySettings, setPrivacySettings] = useState<PrivacySetting[]>(profileData.privacySettings);
   const [animatedStrength, setAnimatedStrength] = useState(0);
   const [animatedCompletion, setAnimatedCompletion] = useState(0);
+
+  // Identity editing state (saved to the backend via PUT /api/auth/profile)
+  const [identity, setIdentity] = useState<ProfileIdentity>(profileData.identity);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [editForm, setEditForm] = useState({
+    fullName: identity.fullName,
+    phone: identity.phone,
+    locality: identity.locality,
+    ward: identity.ward,
+    city: identity.city,
+    societyName: identity.societyName || '',
+    residenceType: identity.residenceType,
+  });
+
+  // Prefill identity from the authenticated account when available
+  useEffect(() => {
+    const token = localStorage.getItem('civinest_token');
+    if (!token) return;
+    import('../services/api')
+      .then(({ getMe }) => getMe(token))
+      .then(({ user }) => {
+        if (!user) return;
+        setIdentity((prev) => ({
+          ...prev,
+          fullName: user.name || prev.fullName,
+          email: user.email || prev.email,
+          phone: user.phone || prev.phone,
+          locality: user.locality || prev.locality,
+          ward: user.ward || prev.ward,
+          city: user.city || prev.city,
+        }));
+        setEditForm((f) => ({
+          ...f,
+          fullName: user.name || f.fullName,
+          phone: user.phone || f.phone,
+          locality: user.locality || f.locality,
+          ward: user.ward || f.ward,
+          city: user.city || f.city,
+        }));
+      })
+      .catch(() => {
+        // Not authenticated — keep the local profile
+      });
+  }, []);
+
+  const handleSaveIdentity = async () => {
+    setSaving(true);
+    setSaveMessage(null);
+    const token = localStorage.getItem('civinest_token');
+    try {
+      if (token) {
+        await updateProfile(token, {
+          name: editForm.fullName,
+          phone: editForm.phone,
+          locality: editForm.locality,
+          ward: editForm.ward,
+          city: editForm.city,
+          community: editForm.societyName,
+        });
+      }
+      setIdentity((prev) => ({
+        ...prev,
+        fullName: editForm.fullName,
+        phone: editForm.phone,
+        locality: editForm.locality,
+        ward: editForm.ward,
+        city: editForm.city,
+        societyName: editForm.societyName,
+        residenceType: editForm.residenceType,
+      }));
+      setIsEditing(false);
+      setSaveMessage({ type: 'success', text: 'Profile updated successfully.' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch {
+      setSaveMessage({ type: 'error', text: 'Failed to save profile. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const pageRef = useRef<HTMLDivElement>(null);
   const strengthRef = useRef<HTMLDivElement>(null);
@@ -192,68 +277,207 @@ export const ProfileOptimizationPage: React.FC<ProfileOptimizationPageProps> = (
             <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 animate-entry">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-bold text-[#0F1E36]">Profile Identity</h3>
-                <button className="p-2 rounded-lg hover:bg-[#F3F4F6] transition-colors cursor-pointer">
-                  <Edit3 className="w-4 h-4 text-[#6B7280]" />
-                </button>
+                {!isEditing && (
+                  <button
+                    onClick={() => {
+                      setEditForm({
+                        fullName: identity.fullName,
+                        phone: identity.phone,
+                        locality: identity.locality,
+                        ward: identity.ward,
+                        city: identity.city,
+                        societyName: identity.societyName || '',
+                        residenceType: identity.residenceType,
+                      });
+                      setSaveMessage(null);
+                      setIsEditing(true);
+                    }}
+                    className="p-2 rounded-lg hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+                    aria-label="Edit profile"
+                  >
+                    <Edit3 className="w-4 h-4 text-[#6B7280]" />
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-16 h-16 rounded-2xl bg-[#0F1E36] text-white flex items-center justify-center text-xl font-bold">
-                  {profileData.identity.fullName.charAt(0)}
+                  {identity.fullName.charAt(0)}
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-[#0F1E36]">{profileData.identity.fullName}</p>
-                  <p className="text-xs text-[#6B7280]">{profileData.identity.email}</p>
+                  <p className="text-lg font-bold text-[#0F1E36]">{identity.fullName}</p>
+                  <p className="text-xs text-[#6B7280]">{identity.email}</p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
-                  <MapPin className="w-4 h-4 text-blue-600" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-[#6B7280]">Location</p>
-                    <p className="text-xs font-semibold text-[#111827] truncate">
-                      {profileData.identity.locality}, {profileData.identity.ward}
-                    </p>
+              {isEditing ? (
+                /* ── Edit mode ── */
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      value={editForm.fullName}
+                      onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
+                    />
                   </div>
-                </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Email (from account)</label>
+                    <input
+                      type="text"
+                      value={identity.email}
+                      disabled
+                      className="w-full px-3 py-2 text-sm bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl text-[#9CA3AF] cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Phone (optional)</label>
+                    <input
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                      placeholder="+91..."
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Locality</label>
+                    <input
+                      type="text"
+                      value={editForm.locality}
+                      onChange={(e) => setEditForm((f) => ({ ...f, locality: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Ward / Area</label>
+                    <input
+                      type="text"
+                      value={editForm.ward}
+                      onChange={(e) => setEditForm((f) => ({ ...f, ward: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">City</label>
+                    <input
+                      type="text"
+                      value={editForm.city}
+                      onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Community / Society (optional)</label>
+                    <input
+                      type="text"
+                      value={editForm.societyName}
+                      onChange={(e) => setEditForm((f) => ({ ...f, societyName: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#6B7280] mb-1">Residence Type</label>
+                    <select
+                      value={editForm.residenceType}
+                      onChange={(e) => setEditForm((f) => ({ ...f, residenceType: e.target.value as ProfileIdentity['residenceType'] }))}
+                      className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-[#111827] cursor-pointer"
+                    >
+                      <option value="apartment">Apartment</option>
+                      <option value="house">House</option>
+                      <option value="society">Society</option>
+                    </select>
+                  </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
-                  <Building className="w-4 h-4 text-purple-600" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-[#6B7280]">Residence Type</p>
-                    <p className="text-xs font-semibold text-[#111827] capitalize">
-                      {profileData.identity.residenceType}
-                    </p>
-                  </div>
-                </div>
+                  {saveMessage && (
+                    <div
+                      className={`flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl border ${
+                        saveMessage.type === 'success'
+                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                          : 'text-red-700 bg-red-50 border-red-200'
+                      }`}
+                    >
+                      {saveMessage.type === 'success' ? (
+                        <Check className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{saveMessage.text}</span>
+                    </div>
+                  )}
 
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
-                  <Users className="w-4 h-4 text-emerald-600" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-[#6B7280]">Community</p>
-                    <p className="text-xs font-semibold text-[#111827] truncate">
-                      {profileData.identity.societyName}
-                    </p>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={handleSaveIdentity}
+                      disabled={saving || !editForm.fullName.trim()}
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F1E36] hover:bg-[#1E293B] text-white text-sm font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setSaveMessage(null);
+                      }}
+                      disabled={saving}
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-sm font-semibold text-[#374151] hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
+              ) : (
+                /* ── View mode ── */
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-[#6B7280]">Location</p>
+                      <p className="text-xs font-semibold text-[#111827] truncate">
+                        {identity.locality}, {identity.ward}
+                      </p>
+                    </div>
+                  </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
-                  <Clock className="w-4 h-4 text-slate-600" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-[#6B7280]">Member Since</p>
-                    <p className="text-xs font-semibold text-[#111827]">
-                      {profileData.identity.joinedDate}
-                    </p>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
+                    <Building className="w-4 h-4 text-purple-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-[#6B7280]">Residence Type</p>
+                      <p className="text-xs font-semibold text-[#111827] capitalize">
+                        {identity.residenceType}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
+                    <Users className="w-4 h-4 text-emerald-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-[#6B7280]">Community</p>
+                      <p className="text-xs font-semibold text-[#111827] truncate">
+                        {identity.societyName || 'Independent Resident'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB]">
+                    <Clock className="w-4 h-4 text-slate-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-[#6B7280]">Member Since</p>
+                      <p className="text-xs font-semibold text-[#111827]">
+                        {identity.joinedDate}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${getVerificationBadgeColor(profileData.identity.verificationStatus)}`}>
-                  {profileData.identity.verificationStatus === 'verified' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                  {profileData.identity.verificationStatus === 'pending' && <AlertCircle className="w-3.5 h-3.5" />}
-                  <span className="capitalize">{profileData.identity.verificationStatus}</span>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${getVerificationBadgeColor(identity.verificationStatus)}`}>
+                  {identity.verificationStatus === 'verified' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {identity.verificationStatus === 'pending' && <AlertCircle className="w-3.5 h-3.5" />}
+                  <span className="capitalize">{identity.verificationStatus}</span>
                 </div>
               </div>
             </div>

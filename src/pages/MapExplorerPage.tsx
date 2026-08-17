@@ -1,10 +1,12 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   MapFilterState,
   initialMapClusters,
   civicInfrastructureNodes,
   MapClusterItem,
 } from '../services/mapExplorerService';
+import { useGeolocation } from '../hooks/useGeolocation';
+import { fetchResidentMapData } from '../services/residentMapData';
 import { CivicMap } from '../components/map/CivicMap';
 import { MapControls as CivicMapControls } from '../components/map/MapControls';
 import { MapSearch } from '../components/map/MapSearch';
@@ -88,6 +90,29 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
 
   // Real map state
   const [mapViewport, setMapViewport] = useState<MapViewport>(DEFAULT_VIEWPORT);
+  const { position: geoPosition, locating: locatingGeo, requestLocation } = useGeolocation();
+
+  // Backend-driven map data (falls back to demo data when unavailable)
+  const [liveIssues, setLiveIssues] = useState<CivicIssue[]>([]);
+  const [liveClusters, setLiveClusters] = useState<IssueCluster[]>([]);
+  const [mapDataSource, setMapDataSource] = useState<'live' | 'demo'>('demo');
+
+  useEffect(() => {
+    let mounted = true;
+    fetchResidentMapData().then((data) => {
+      if (!mounted) return;
+      setLiveIssues(data.issues);
+      setLiveClusters(data.clusters);
+      setMapDataSource(data.source);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleLocateMe = useCallback(() => {
+    requestLocation();
+  }, [requestLocation]);
   const [mapLayers, setMapLayers] = useState<MapLayer[]>([
     { id: 'issues', name: 'Civic Issues', type: 'issues', visible: true, color: '#EF4444' },
     { id: 'clusters', name: 'Issue Clusters', type: 'clusters', visible: true, color: '#F59E0B' },
@@ -95,8 +120,10 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
     { id: 'infrastructure', name: 'Infrastructure', type: 'infrastructure', visible: false, color: '#3B82F6' },
   ]);
 
-  const mapIssues = useMemo(() => getIssuesForViewport(mapViewport), [mapViewport]);
-  const mapClusters = useMemo(() => getClustersForViewport(mapViewport), [mapViewport]);
+  const demoIssues = useMemo(() => getIssuesForViewport(mapViewport), [mapViewport]);
+  const demoClusters = useMemo(() => getClustersForViewport(mapViewport), [mapViewport]);
+  const mapIssues = liveIssues.length > 0 ? liveIssues : demoIssues;
+  const mapClusters = liveClusters.length > 0 ? liveClusters : demoClusters;
 
   const handleToggleLayer = useCallback((layerId: string) => {
     setMapLayers((prev) => prev.map((l) => (l.id === layerId ? { ...l, visible: !l.visible } : l)));
@@ -108,6 +135,20 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
       setToastMessage(null);
     }, 3500);
   };
+
+  // Center the map on the user's live location when located
+  useEffect(() => {
+    if (geoPosition) {
+      setMapViewport((prev) => ({
+        ...prev,
+        latitude: geoPosition.latitude,
+        longitude: geoPosition.longitude,
+        zoom: 15,
+      }));
+      showToast(`Centered on your location (${geoPosition.latitude.toFixed(4)}, ${geoPosition.longitude.toFixed(4)})`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geoPosition]);
 
   // Filtered clusters logic
   const filteredClusters = useMemo(() => {
@@ -248,6 +289,8 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
             clusters={mapClusters}
             issues={mapIssues}
             selectedIssueId={selectedCluster?.id}
+            showUserLocation={!!geoPosition}
+            userLocation={geoPosition || undefined}
             className="w-full h-full"
             style={{ width: '100%', height: '100%' }}
           />
@@ -257,6 +300,7 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
             <CivicMapControls
               layers={mapLayers}
               onToggleLayer={handleToggleLayer}
+              onLocateMe={handleLocateMe}
               onReset={() => setMapViewport(DEFAULT_VIEWPORT)}
               isFullscreen={isFullscreen}
               onFullscreen={() => setIsFullscreen(!isFullscreen)}

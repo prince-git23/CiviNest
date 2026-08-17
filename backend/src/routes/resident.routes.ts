@@ -258,6 +258,19 @@ router.get('/reports/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // ── Discussions ──
+// GET /api/resident/discussions — list active discussions
+router.get('/discussions', async (req: AuthRequest, res: Response) => {
+  try {
+    const discussions = await Discussion.find({ status: { $in: ['OPEN', 'ACTIVE'] } })
+      .sort({ updatedAt: -1 })
+      .limit(30)
+      .lean();
+    sendSuccess(res, { discussions });
+  } catch {
+    sendError(res, 'Failed to load discussions.', 500);
+  }
+});
+
 // GET /api/resident/discussions/:id
 router.get('/discussions/:id', async (req: AuthRequest, res: Response) => {
   try {
@@ -320,6 +333,75 @@ router.post('/discussions/:id/confirm', async (req: AuthRequest, res: Response) 
     sendSuccess(res, { confirmations: discussion.confirmations.length }, 'Confirmation recorded.');
   } catch {
     sendError(res, 'Failed to confirm.', 500);
+  }
+});
+
+// ── Impact ──
+// GET /api/resident/impact — civic participation metrics
+router.get('/impact', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const [reports, signals] = await Promise.all([
+      Report.find({ userId }).lean(),
+      CivicSignal.find({ userId }).lean(),
+    ]);
+
+    const user = await User.findById(userId);
+    const reportsSubmitted = reports.length;
+    const verifiedSignals = signals.filter((s) => s.status === 'CLUSTERED').length;
+    const communityUpvotes = reports.reduce((sum, r) => sum + (r.upvotes || 0), 0);
+    const points = reportsSubmitted * 25 + verifiedSignals * 15 + communityUpvotes * 5;
+    const resolvedCount = reports.filter((r) => r.status === 'Resolved').length;
+
+    sendSuccess(res, {
+      impact: {
+        points,
+        rankPercentile: Math.min(90, 30 + reportsSubmitted * 10),
+        locality: user?.locality || 'Dharampeth',
+        reportsSubmitted,
+        verifiedSignals,
+        communityUpvotes,
+        resolvedCount,
+      },
+    });
+  } catch {
+    sendError(res, 'Failed to load impact.', 500);
+  }
+});
+
+// ── Verification ──
+// PATCH /api/resident/reports/:id/verify — resident confirms resolution
+router.patch('/reports/:id/verify', async (req: AuthRequest, res: Response) => {
+  try {
+    const { resolved } = req.body;
+    if (typeof resolved !== 'boolean') {
+      sendError(res, '"resolved" must be a boolean.', 400);
+      return;
+    }
+
+    const report = await Report.findOne({ _id: req.params.id, userId: req.user!.userId });
+    if (!report) {
+      sendError(res, 'Report not found.', 404);
+      return;
+    }
+
+    report.status = resolved ? 'Resolved' : 'Reopened';
+    report.timeline = [
+      ...(report.timeline || []),
+      {
+        status: resolved ? 'Citizen Verified' : 'Reopened by Citizen',
+        timestamp: new Date().toLocaleString(),
+        note: resolved
+          ? 'The resident confirmed the civic issue is fixed.'
+          : 'The resident reported the issue is still not fixed.',
+        actor: 'Resident',
+      },
+    ];
+    await report.save();
+
+    sendSuccess(res, { report }, resolved ? 'Resolution verified.' : 'Issue reopened.', 200);
+  } catch {
+    sendError(res, 'Failed to update report.', 500);
   }
 });
 

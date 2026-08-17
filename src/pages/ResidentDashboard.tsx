@@ -17,6 +17,10 @@ import { LocationShareModal } from '../components/dashboard/LocationShareModal';
 import { LiveReportSimulatorModal } from '../components/sections/LiveReportSimulatorModal';
 import { DashboardDataset, defaultDashboardData } from '../data/dashboardData';
 import { DashboardReportItem, SpatialMapNode, DashboardNearbyIssue } from '../types';
+import { fetchResidentDashboard } from '../services/residentDashboardData';
+import { convertCluster } from '../services/residentMapData';
+import { getMapClusters } from '../services/api';
+import type { IssueCluster } from '../services/geo/geoTypes';
 import { AppPageId } from '../App';
 import {
   Menu,
@@ -62,6 +66,26 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
   onNavigateToPage,
 }) => {
   const [data, setData] = useState<DashboardDataset>(initialData);
+  const [realClusters, setRealClusters] = useState<IssueCluster[]>([]);
+
+  // Load real backend data when available (falls back to demo data)
+  useEffect(() => {
+    let mounted = true;
+    fetchResidentDashboard(data).then((next) => {
+      if (mounted) setData(next);
+    });
+    getMapClusters()
+      .then((res) => {
+        if (mounted && res.clusters?.length) setRealClusters(res.clusters.map(convertCluster));
+      })
+      .catch(() => {
+        // Backend unavailable — demo map data stays
+      });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Modals state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -219,6 +243,8 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
 
         <CivicSpatialMap
           nodes={data.spatialNodes}
+          clusters={realClusters}
+          dataSource={realClusters.length > 0 ? 'live' : 'demo'}
           selectedNodeId={selectedMapNode?.id}
           onSelectNode={(node) => {
             setSelectedMapNode(node);

@@ -8,17 +8,21 @@ import { getIssuesForViewport } from '../../services/geo/mapDataService';
 
 interface RecentMapViewProps {
   nodes?: SpatialMapNode[];
+  /** Real report locations from the backend (falls back to demo data when omitted) */
+  issues?: CivicIssue[];
   onOpenMap?: () => void;
   className?: string;
 }
 
 export const RecentMapView: React.FC<RecentMapViewProps> = ({
   nodes = [],
+  issues: backendIssues,
   onOpenMap,
   className = '',
 }) => {
   const [mapViewport] = useState<MapViewport>(DEFAULT_VIEWPORT);
-  const issues = useMemo(() => getIssuesForViewport(mapViewport), [mapViewport]);
+  const demoIssues = useMemo(() => getIssuesForViewport(mapViewport), [mapViewport]);
+  const issues = backendIssues && backendIssues.length > 0 ? backendIssues : demoIssues;
 
   return (
     <div

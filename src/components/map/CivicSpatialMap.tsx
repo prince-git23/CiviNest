@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useGeolocation } from '../../hooks/useGeolocation';
 import {
   Layers,
   MapPin,
@@ -27,6 +28,10 @@ interface CivicSpatialMapProps {
   wardName?: string;
   localityName?: string;
   userLocation?: { latitude: number; longitude: number };
+  /** Real cluster data from the backend (falls back to demo data when omitted) */
+  clusters?: IssueCluster[];
+  /** Where the map data came from — controls the header badge */
+  dataSource?: 'live' | 'demo';
 }
 
 const DEFAULT_ISSUES: SpatialMapNode[] = [
@@ -75,11 +80,16 @@ export const CivicSpatialMap: React.FC<CivicSpatialMapProps> = ({
   wardName = 'Dharampeth',
   localityName = 'Green Valley Residency',
   userLocation,
+  clusters: clustersProp,
+  dataSource = clustersProp && clustersProp.length > 0 ? 'live' : 'demo',
 }) => {
   const [viewport, setViewport] = useState<MapViewport>({
     ...DEFAULT_VIEWPORT,
     zoom: 14,
   });
+
+  // Live browser geolocation for the Locate Me control
+  const { position: geoPosition, locating: locatingGeo, error: geoError, requestLocation } = useGeolocation();
 
   const [layers, setLayers] = useState<MapLayer[]>([
     { id: 'issues', name: 'Civic Issues', type: 'issues', visible: true, color: '#EF4444' },
@@ -92,7 +102,8 @@ export const CivicSpatialMap: React.FC<CivicSpatialMapProps> = ({
 
   // Get data for current viewport
   const issues = useMemo(() => getIssuesForViewport(viewport), [viewport]);
-  const clusters = useMemo(() => getClustersForViewport(viewport), [viewport]);
+  const demoClusters = useMemo(() => getClustersForViewport(viewport), [viewport]);
+  const clusters = (clustersProp && clustersProp.length > 0 ? clustersProp : demoClusters) as IssueCluster[];
 
   const handleToggleLayer = useCallback((layerId: string) => {
     setLayers((prev) =>
@@ -105,15 +116,28 @@ export const CivicSpatialMap: React.FC<CivicSpatialMapProps> = ({
   }, []);
 
   const handleLocateMe = useCallback(() => {
-    if (userLocation) {
+    const target = userLocation || geoPosition;
+    if (target) {
       setViewport((prev) => ({
         ...prev,
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
+        latitude: target.latitude,
+        longitude: target.longitude,
         zoom: 15,
       }));
+    } else {
+      // No location yet — ask the browser for the user's current position
+      requestLocation();
     }
-  }, [userLocation]);
+  }, [userLocation, geoPosition, requestLocation]);
+
+  // Center + show the user marker once GPS returns a position
+  const effectiveUserLocation = userLocation || geoPosition || undefined;
+  const showUserLocation = !!effectiveUserLocation;
+  useEffect(() => {
+    if (geoPosition) {
+      setViewport((prev) => ({ ...prev, latitude: geoPosition.latitude, longitude: geoPosition.longitude, zoom: 15 }));
+    }
+  }, [geoPosition]);
 
   const handleReset = useCallback(() => {
     setViewport(DEFAULT_VIEWPORT);
@@ -130,9 +154,19 @@ export const CivicSpatialMap: React.FC<CivicSpatialMapProps> = ({
             {wardName} · {localityName}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          Demo Data
+        <span
+          className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${
+            dataSource === 'live'
+              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+              : 'text-amber-700 bg-amber-50 border-amber-200'
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              dataSource === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            }`}
+          />
+          {dataSource === 'live' ? 'Live Data' : 'Demo Data'}
         </span>
       </div>
 
@@ -147,11 +181,19 @@ export const CivicSpatialMap: React.FC<CivicSpatialMapProps> = ({
             wards={layers.find((l) => l.id === 'wards')?.visible ? [] : []}
             selectedIssueId={selectedIssue?.id}
             onSelectIssue={handleSelectIssue}
-            showUserLocation={!!userLocation}
-            userLocation={userLocation}
+            showUserLocation={showUserLocation}
+            userLocation={effectiveUserLocation}
             className="w-full h-full"
             style={{ height: 400 }}
           />
+
+          {(locatingGeo || geoError) && (
+            <div className="absolute bottom-3 right-3 z-10">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1 rounded-full bg-white border border-[#E5E7EB] shadow-sm text-[#6B7280]">
+                {locatingGeo ? 'Locating…' : geoError}
+              </span>
+            </div>
+          )}
 
           {/* Controls overlay */}
           <div className="absolute top-3 left-3 z-10">

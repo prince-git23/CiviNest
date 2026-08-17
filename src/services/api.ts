@@ -390,6 +390,15 @@ export async function getMapClusters(): Promise<{ clusters: ResidentDashboardDat
   return res.data;
 }
 
+export async function getMapIssues(): Promise<{ issues: ReportData[] }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ issues: ReportData[] }>('/resident/map/issues', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load map issues', 400);
+  return res.data;
+}
+
 // ── Insights ──
 
 export async function getResidentInsights(): Promise<{ insights: AIInsightData[] }> {
@@ -419,6 +428,7 @@ export interface DiscussionData {
   }[];
   confirmations: string[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export async function getDiscussion(id: string): Promise<{ discussion: DiscussionData }> {
@@ -441,12 +451,54 @@ export async function postDiscussionMessage(id: string, text: string): Promise<{
   return res.data;
 }
 
-export async function confirmDiscussion(id: string): Promise<{ discussion: DiscussionData }> {
+export async function confirmDiscussion(id: string): Promise<{ confirmations: number }> {
   const token = localStorage.getItem('civinest_token');
-  const res = await apiRequest<{ discussion: DiscussionData }>(`/resident/discussions/${id}/confirm`, {
+  const res = await apiRequest<{ confirmations: number }>(`/resident/discussions/${id}/confirm`, {
     method: 'POST',
     token: token || undefined,
   });
   if (!res.data) throw new ApiError(res.error || 'Failed to confirm', 400);
+  return res.data;
+}
+
+export async function getResidentDiscussions(): Promise<{ discussions: DiscussionData[] }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ discussions: DiscussionData[] }>('/resident/discussions', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load discussions', 400);
+  return res.data;
+}
+
+export interface ResidentImpact {
+  points: number;
+  rankPercentile: number;
+  locality: string;
+  reportsSubmitted: number;
+  verifiedSignals: number;
+  communityUpvotes: number;
+  resolvedCount: number;
+}
+
+export async function getResidentImpact(): Promise<{ impact: ResidentImpact }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ impact: ResidentImpact }>('/resident/impact', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load impact', 400);
+  return res.data;
+}
+
+export async function verifyReport(
+  id: string,
+  resolved: boolean
+): Promise<{ report: ReportData }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ report: ReportData }>(`/resident/reports/${id}/verify`, {
+    method: 'PATCH',
+    body: { resolved },
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to verify', 400);
   return res.data;
 }

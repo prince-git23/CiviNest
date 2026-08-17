@@ -76,6 +76,11 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
   const handleConfirmGroundTruth = () => {
     setIsSubmitting(true);
 
+    // Persist the verification on the backend (non-blocking)
+    import('../services/api').then(({ verifyReport }) => {
+      verifyReport(activeReport.id, true).catch(() => {});
+    });
+
     const resolution: ResolutionVerificationInfo = {
       isVerifiedByResident: true,
       residentConfirmed: true,
@@ -99,6 +104,11 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
   };
 
   const handleReopenSubmit = (reportId: string, reason: string, photoUrl?: string) => {
+    // Persist the reopen on the backend (non-blocking)
+    import('../services/api').then(({ verifyReport }) => {
+      verifyReport(reportId, false).catch(() => {});
+    });
+
     const resolution: ResolutionVerificationInfo = {
       isVerifiedByResident: true,
       residentConfirmed: false,

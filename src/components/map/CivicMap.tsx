@@ -14,7 +14,11 @@ import type {
 } from '../../services/geo/geoTypes';
 import { CATEGORY_COLORS, PRIORITY_COLORS, DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
 
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+// CARTO Voyager — a colorful street map (Google-Maps-like) that works with no API key.
+// Override with VITE_MAP_STYLE_URL to use any MapLibre-compatible style (e.g. MapTiler).
+const MAP_STYLE =
+  (import.meta.env.VITE_MAP_STYLE_URL as string | undefined) ||
+  'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
 export interface CivicMapProps {
   viewport?: MapViewport;

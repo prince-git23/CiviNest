@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, PlusCircle, ArrowLeft, Radio, CheckCircle2, ShieldCheck, Sparkles, Filter, Loader2 } from 'lucide-react';
 import { DashboardDataset, DashboardReportItem } from '../types';
 import { getMyReports, ReportData } from '../services/api';
+import { convertIssue } from '../services/residentMapData';
+import type { CivicIssue } from '../services/geo/geoTypes';
 import ReportsSummary from '../components/reports/ReportsSummary';
 import ReportFilters from '../components/reports/ReportFilters';
 import ReportCard from '../components/reports/ReportCard';
@@ -32,6 +34,7 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [reportIssues, setReportIssues] = useState<CivicIssue[]>([]);
 
   // Load reports from backend on mount
   useEffect(() => {
@@ -39,6 +42,9 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
       setIsLoadingReports(true);
       try {
         const result = await getMyReports({ limit: 50 });
+        if (result.reports?.length) {
+          setReportIssues(result.reports.map(convertIssue));
+        }
         // Convert backend report format to DashboardReportItem format
         const converted: DashboardReportItem[] = result.reports.map((r: ReportData) => ({
           id: r._id,
@@ -325,6 +331,7 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
 
             <RecentMapView
               nodes={dashboardData.spatialNodes}
+              issues={reportIssues}
               onOpenMap={onNavigateToMapExplorer || onNavigateToDashboard}
             />
           </div>

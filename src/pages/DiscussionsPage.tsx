@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { gsap } from 'gsap';
 import {
   MessageSquare,
@@ -23,18 +23,22 @@ import {
   X,
   Send,
   Paperclip,
+  Loader2,
 } from 'lucide-react';
 import {
   DiscussionItem,
   DiscussionCategory,
   TrendingTopic,
   CommunityPulseItem,
+  DiscussionMessage,
+  DiscussionParticipant,
   sampleDiscussions,
   discussionCategories,
   trendingTopics,
   communityPulseItems,
   filterDiscussions,
 } from '../services/discussionsService';
+import { getResidentDiscussions, getDiscussion, postDiscussionMessage, DiscussionData } from '../services/api';
 
 interface DiscussionsPageProps {
   userContext?: {
@@ -75,6 +79,46 @@ const getStatusColor = (status: DiscussionItem['status']) => {
   }
 };
 
+const CATEGORY_TO_DISCUSSION: Record<string, DiscussionItem['category']> = {
+  water_supply: 'water',
+  water: 'water',
+  roads: 'roads',
+  road: 'roads',
+  street_lighting: 'lighting',
+  lighting: 'lighting',
+  drainage: 'sanitation',
+  waste: 'sanitation',
+  public_safety: 'safety',
+  safety: 'safety',
+  parks: 'environment',
+};
+
+function toDiscussionItem(d: DiscussionData): DiscussionItem {
+  const category = CATEGORY_TO_DISCUSSION[d.category] || 'general';
+  const categoryLabel = (d.category || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const firstMessage = d.messages?.[0]?.text || '';
+  return {
+    id: d._id,
+    title: d.issueTitle || 'Community discussion',
+    category,
+    categoryLabel: categoryLabel || 'General',
+    locality: d.locality || d.ward || 'Dharampeth',
+    ward: d.ward || 'Ward 14',
+    associatedIssueId: d.issueId,
+    associatedIssueTitle: d.issueTitle,
+    participants: [],
+    messageCount: d.messages?.length || 0,
+    confirmations: d.confirmations?.length || 0,
+    status: d.status === 'CLOSED' ? 'resolved' : 'active',
+    createdAt: d.createdAt,
+    lastActivity: d.updatedAt || d.createdAt,
+    description: firstMessage || `${categoryLabel || 'Civic'} concern in ${d.locality || 'your area'} — join the discussion to add your voice.`,
+    tags: [categoryLabel || 'Civic'],
+  };
+}
+
 export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
   userContext = {
     name: 'Prince',
@@ -92,6 +136,25 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
   const [selectedDiscussion, setSelectedDiscussion] = useState<DiscussionItem | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [discussions, setDiscussions] = useState<DiscussionItem[]>(sampleDiscussions);
+  const [drawerMessages, setDrawerMessages] = useState<DiscussionMessage[]>([]);
+
+  // Load real discussions from the backend when available
+  useEffect(() => {
+    let mounted = true;
+    getResidentDiscussions()
+      .then(({ discussions: real }) => {
+        if (!mounted || !real || real.length === 0) return;
+        setDiscussions(real.map(toDiscussionItem));
+      })
+      .catch(() => {
+        // Backend unavailable — demo discussions stay
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const pageRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -115,7 +178,7 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
     );
   }, [selectedCategory, selectedStatus, searchQuery]);
 
-  const filteredDiscussions = filterDiscussions(sampleDiscussions, {
+  const filteredDiscussions = filterDiscussions(discussions, {
     category: selectedCategory,
     status: selectedStatus,
     searchQuery,
@@ -124,13 +187,82 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
 
   const handleSelectDiscussion = (discussion: DiscussionItem) => {
     setSelectedDiscussion(discussion);
+    setDrawerMessages([]);
+    setNewMessage('');
     setIsDetailDrawerOpen(true);
+
+    // Load the real message thread from the backend
+    getDiscussion(discussion.id)
+      .then(({ discussion: detail }) => {
+        const loaded = (detail.messages || []).map((m, i) => ({
+          id: m.userId + '-' + i,
+          author: {
+            id: m.userId,
+            name: m.userName || 'Resident',
+            isVerified: false,
+          },
+          content: m.text,
+          timestamp: m.createdAt ? new Date(m.createdAt).toLocaleString() : '',
+          isEvidence: false,
+        }));
+        setDrawerMessages(loaded);
+      })
+      .catch(() => {
+        // Backend unavailable — empty thread
+      });
+
     gsap.fromTo(
       '.drawer-content',
       { x: 100, opacity: 0 },
       { x: 0, opacity: 1, duration: 0.3, ease: 'power2.out' }
     );
   };
+
+  const handleSendMessage = async () => {
+    const text = newMessage.trim();
+    if (!text || !selectedDiscussion || sendingMessage) return;
+
+    const discussionId = selectedDiscussion.id;
+    setSendingMessage(true);
+    try {
+      const { message } = await postDiscussionMessage(discussionId, text);
+      const newMsg: DiscussionMessage = {
+        id: `${Date.now()}`,
+        author: { id: message.userId, name: message.userName || 'Resident', isVerified: false },
+        content: message.text,
+        timestamp: message.createdAt ? new Date(message.createdAt).toLocaleString() : 'Just now',
+        isEvidence: false,
+      };
+      setDrawerMessages((prev) => [...prev, newMsg]);
+      setNewMessage('');
+
+      // Reflect the new count + participants in the drawer and list
+      setSelectedDiscussion((prev) =>
+        prev ? { ...prev, messageCount: prev.messageCount + 1 } : prev
+      );
+      setDiscussions((prev) =>
+        prev.map((d) => (d.id === discussionId ? { ...d, messageCount: d.messageCount + 1 } : d))
+      );
+    } catch {
+      // Keep the text so the resident can retry
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  // Participants derived from the loaded message thread
+  const drawerParticipants: DiscussionParticipant[] = useMemo(() => {
+    const seen = new Set<string>();
+    const participants: DiscussionParticipant[] = [];
+    drawerMessages.forEach((m) => {
+      const key = m.author.id + m.author.name;
+      if (!seen.has(key)) {
+        seen.add(key);
+        participants.push(m.author);
+      }
+    });
+    return participants;
+  }, [drawerMessages]);
 
   const handleCloseDrawer = () => {
     gsap.to('.drawer-content', {
@@ -142,7 +274,7 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
     });
   };
 
-  const localities = Array.from(new Set(sampleDiscussions.map((d) => d.locality)));
+  const localities = Array.from(new Set(discussions.map((d) => d.locality)));
 
   return (
     <div ref={pageRef} className="min-h-screen bg-[#FBFBFA]">
@@ -423,7 +555,9 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-white border border-[#E5E7EB]">
                   <p className="text-[11px] text-[#6B7280]">Participants</p>
-                  <p className="text-lg font-bold text-[#0F1E36]">{selectedDiscussion.participants.length}</p>
+                  <p className="text-lg font-bold text-[#0F1E36]">
+                    {drawerMessages.length > 0 ? drawerParticipants.length : selectedDiscussion.participants.length}
+                  </p>
                 </div>
                 <div className="p-3 rounded-xl bg-white border border-[#E5E7EB]">
                   <p className="text-[11px] text-[#6B7280]">Messages</p>
@@ -442,13 +576,13 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
               <div>
                 <p className="text-xs font-semibold text-[#6B7280] mb-2">Participants</p>
                 <div className="flex flex-wrap gap-2">
-                  {selectedDiscussion.participants.map((participant) => (
+                  {(drawerMessages.length > 0 ? drawerParticipants : selectedDiscussion.participants).map((participant) => (
                     <div
-                      key={participant.id}
+                      key={participant.id + participant.name}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F3F4F6] border border-[#E5E7EB]"
                     >
                       <div className="w-6 h-6 rounded-full bg-[#0F1E36] text-white flex items-center justify-center text-xs font-bold">
-                        {participant.name.charAt(0)}
+                        {(participant.name || '?').charAt(0)}
                       </div>
                       <span className="text-xs font-medium text-[#111827]">{participant.name}</span>
                       {participant.isVerified && (
@@ -456,6 +590,36 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Message thread */}
+              <div>
+                <p className="text-xs font-semibold text-[#6B7280] mb-2">Conversation</p>
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {drawerMessages.length === 0 ? (
+                    <p className="text-xs text-[#9CA3AF] bg-[#F9FAFB] border border-dashed border-[#E5E7EB] rounded-xl p-4 text-center">
+                      No messages yet — start the conversation below.
+                    </p>
+                  ) : (
+                    drawerMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB]"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#0F1E36] text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                          {(msg.author.name || 'R').charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xs font-bold text-[#111827]">{msg.author.name}</span>
+                            <span className="text-[10px] text-[#9CA3AF]">{msg.timestamp}</span>
+                          </div>
+                          <p className="text-xs text-[#374151] mt-0.5 break-words">{msg.content}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -481,12 +645,25 @@ export const DiscussionsPage: React.FC<DiscussionsPageProps> = ({
                   placeholder="Add to discussion..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                   className="flex-1 px-4 py-2.5 text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-[#111827]"
                 />
                 <button
-                  className="p-2.5 rounded-xl bg-[#0F1E36] hover:bg-[#1E293B] text-white transition-colors cursor-pointer"
+                  onClick={handleSendMessage}
+                  disabled={sendingMessage || !newMessage.trim()}
+                  className="p-2.5 rounded-xl bg-[#0F1E36] hover:bg-[#1E293B] text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Send message"
                 >
-                  <Send className="w-5 h-5" />
+                  {sendingMessage ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>

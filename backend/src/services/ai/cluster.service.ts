@@ -1,6 +1,7 @@
 import { CivicCluster, ICivicCluster } from '../../models/CivicCluster.js';
 import { CivicSignal, ICivicSignal } from '../../models/CivicSignal.js';
 import { Report } from '../../models/Report.js';
+import { Discussion } from '../../models/Discussion.js';
 
 export interface ClusterMatchResult {
   matched: boolean;
@@ -184,6 +185,19 @@ export async function createIssueFromSignal(
       $addToSet: { issueIds: report._id },
     });
   }
+
+  // Open a community discussion linked to this issue so residents can
+  // coordinate, confirm, and discuss it.
+  await Discussion.create({
+    issueId: report._id,
+    issueTitle: report.title,
+    category: input.category,
+    ward: input.location?.ward || '',
+    locality: input.location?.ward || '',
+    status: 'OPEN',
+    messages: [],
+    confirmations: [],
+  });
 
   return report._id.toString();
 }
