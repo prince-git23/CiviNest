@@ -285,3 +285,74 @@ export interface DashboardDataset {
   communityPulse: CommunityPulseData;
   nearbyIssues: DashboardNearbyIssue[];
 }
+
+// ─── Community Dashboard Types ────────────────────────────────────────────────
+
+export interface CommunityContext {
+  name: string;
+  role: string;
+  location: string;
+  city: string;
+  lastUpdated: string;
+}
+
+export interface CommunityHealthData {
+  score: number;
+  maxScore: number;
+  status: 'Stable' | 'Improving' | 'Needs Attention' | 'At Risk';
+  explanation: string;
+  activeClusters: number;
+  trend: 'up' | 'down' | 'stable';
+  segments: { category: string; score: number; color: string }[];
+}
+
+export interface CivicMetrics {
+  activeIssues: { count: number; change: number; trend: 'up' | 'down' };
+  confirmations: { count: number; issueCount: number };
+  openCases: { count: number; awaitingCount: number };
+  municipalResponse: { count: number; coveragePercent: number };
+}
+
+export interface PrioritizedIssue {
+  id: string;
+  title: string;
+  reportCount: number;
+  confirmationCount: number;
+  priorityScore: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  category: string;
+  clusterId?: string;
+}
+
+export interface ConsensusCategory {
+  category: string;
+  confirmations: number;
+  percentage: number;
+  color: string;
+}
+
+export interface MunicipalCase {
+  id: string;
+  caseId: string;
+  issue: string;
+  department: string;
+  status: ReportStatusType;
+}
+
+export interface ResponseDistributionData {
+  responded: number;
+  awaiting: number;
+  resolved: number;
+  reopened: number;
+  insight: string;
+}
+
+export interface CommunityDashboardData {
+  community: CommunityContext;
+  health: CommunityHealthData;
+  metrics: CivicMetrics;
+  activeIssues: PrioritizedIssue[];
+  consensus: ConsensusCategory[];
+  municipalCases: MunicipalCase[];
+  responseDistribution: ResponseDistributionData;
+}
