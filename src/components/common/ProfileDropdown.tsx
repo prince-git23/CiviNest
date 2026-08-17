@@ -30,6 +30,16 @@ interface ProfileDropdownProps {
   onNavigateToCreateSignal?: () => void;
   onNavigateToImpact?: () => void;
   onNavigateToPublicPlatform?: () => void;
+  /** Opens the role-aware profile view (Community Representative portal) */
+  onNavigateToProfile?: () => void;
+  /** Opens account settings (Community Representative portal) */
+  onNavigateToSettings?: () => void;
+  /** Hide resident-only actions (filings, civic signal, impact) — used in the rep portal */
+  hideResidentActions?: boolean;
+  /** Hide the "Switch to Public Platform" footer action — used in the rep portal */
+  hidePublicPlatformSwitch?: boolean;
+  /** Override the avatar rendering (defaults to user initials) */
+  avatarIcon?: React.ReactNode;
   onSignOut?: () => void;
 }
 
@@ -43,6 +53,11 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   onNavigateToCreateSignal,
   onNavigateToImpact,
   onNavigateToPublicPlatform,
+  onNavigateToProfile,
+  onNavigateToSettings,
+  hideResidentActions = false,
+  hidePublicPlatformSwitch = false,
+  avatarIcon,
   onSignOut,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,8 +69,17 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const close = () => setIsOpen(false);
@@ -105,7 +129,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           {user.name.toUpperCase()}
         </span>
         <div className="w-6 h-6 rounded-full bg-[#0F1E36] text-white flex items-center justify-center text-xs font-bold">
-          {getInitials(user.name)}
+          {avatarIcon ?? getInitials(user.name)}
         </div>
       </button>
 
@@ -116,7 +140,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           <div className="px-4 py-3 border-b border-[#F3F4F6]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#0F1E36] text-white flex items-center justify-center text-sm font-bold shrink-0">
-                {getInitials(user.name)}
+                {avatarIcon ?? getInitials(user.name)}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[#111827] truncate">{user.name}</p>
@@ -133,7 +157,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           {/* Role-Specific Menu Items */}
           <div className="py-1">
             {/* ── RESIDENT items ── */}
-            {(user.role === 'resident' || user.role === 'community_rep') && (
+            {!hideResidentActions && (user.role === 'resident' || user.role === 'community_rep') && (
               <>
                 {user.impactScore !== undefined && onNavigateToImpact && (
                   <DropdownItem
@@ -166,6 +190,24 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
             )}
 
             {/* ── COMMUNITY REP additional items ── */}
+            {user.role === 'community_rep' && (
+              <>
+                {onNavigateToProfile && (
+                  <DropdownItem
+                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                    label="View Profile"
+                    onClick={() => { close(); onNavigateToProfile(); }}
+                  />
+                )}
+                {onNavigateToSettings && (
+                  <DropdownItem
+                    icon={<Settings className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Account Settings"
+                    onClick={() => { close(); onNavigateToSettings(); }}
+                  />
+                )}
+              </>
+            )}
             {user.role === 'community_rep' && user.hasCommunityRepRole && onNavigateToCommunity && (
               <DropdownItem
                 icon={<Users className="w-3.5 h-3.5 text-[#2563EB]" />}
@@ -252,7 +294,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 
           {/* Footer Actions — same for all roles */}
           <div className="border-t border-[#F3F4F6] pt-1">
-            {onNavigateToPublicPlatform && user.currentPortal !== 'residential' && (
+            {!hidePublicPlatformSwitch && onNavigateToPublicPlatform && user.currentPortal !== 'residential' && (
               <DropdownItem
                 icon={<ExternalLink className="w-3.5 h-3.5 text-slate-400" />}
                 label="Switch to Public Platform"

@@ -12,12 +12,16 @@ import {
 } from 'lucide-react';
 import { CiviNestLogo } from '../common/CiviNestLogo';
 
-export type RepresentativeSection = 
-  | 'dashboard' 
-  | 'issues' 
-  | 'aggregation' 
-  | 'members' 
-  | 'analytics';
+export type RepresentativeSection =
+  | 'dashboard'
+  | 'issues'
+  | 'aggregation'
+  | 'members'
+  | 'analytics'
+  | 'settings'
+  | 'support'
+  | 'profile'
+  | 'notifications';
 
 interface RepresentativeSidebarProps {
   activeSection: RepresentativeSection;
@@ -39,7 +43,7 @@ export const RepresentativeSidebar: React.FC<RepresentativeSidebarProps> = ({
   const menuItems: {
     id: RepresentativeSection;
     label: string;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     badge?: string;
   }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -138,22 +142,35 @@ export const RepresentativeSidebar: React.FC<RepresentativeSidebarProps> = ({
 
       {/* Bottom Utility Links */}
       <div className="pt-4 border-t border-[#E5E7EB] space-y-2">
-        <button
-          type="button"
-          onClick={() => {}}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6] transition-all duration-150 cursor-pointer"
-        >
-          <Settings className="w-4 h-4 text-[#6B7280]" />
-          <span>Settings</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {}}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6] transition-all duration-150 cursor-pointer"
-        >
-          <HelpCircle className="w-4 h-4 text-[#6B7280]" />
-          <span>Support Center</span>
-        </button>
+        {(
+          [
+            { id: 'settings' as const, label: 'Settings', icon: Settings },
+            { id: 'support' as const, label: 'Support Center', icon: HelpCircle },
+          ]
+        ).map((item) => {
+          const Icon = item.icon;
+          const isActive = activeSection === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleItemClick(item.id)}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                isActive
+                  ? 'bg-[#3B82F6] text-white shadow-sm font-semibold'
+                  : 'text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <Icon
+                className={`w-4 h-4 transition-transform duration-150 ${
+                  isActive ? 'text-white' : 'text-[#6B7280]'
+                }`}
+              />
+              <span>{item.label}</span>
+              {isActive && <ChevronRight className="w-4 h-4 text-white/80 ml-auto" />}
+            </button>
+          );
+        })}
       </div>
     </aside>
   );

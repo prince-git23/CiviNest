@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PublicNavbar from './components/navigation/PublicNavbar';
 import WorkspaceHeader, { WorkspaceTabId } from './components/navigation/WorkspaceHeader';
 import HeroSection from './components/hero/HeroSection';
@@ -31,6 +31,17 @@ import { CommunityIssues } from './pages/community-representative/CommunityIssue
 import { IssueAggregation } from './pages/community-representative/IssueAggregation';
 import { CommunityMembers } from './pages/community-representative/CommunityMembers';
 import { CommunityAnalytics } from './pages/community-representative/CommunityAnalytics';
+import { RepresentativeProfile } from './pages/community-representative/RepresentativeProfile';
+import { RepresentativeSettings } from './pages/community-representative/RepresentativeSettings';
+import { SupportCenter } from './pages/community-representative/SupportCenter';
+import { NotificationsPage } from './pages/community-representative/NotificationsPage';
+import {
+  loadNotifications,
+  saveNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  type NotificationItem,
+} from './services/notificationService';
 import { OnboardingFormData, UserRoleConfig, DashboardReportItem, ResolutionVerificationInfo, AuthenticatedUser, ROLE_DEFAULT_PERMISSIONS, ROLE_PORTAL_MAP, type PortalId, type UserRoleId } from './types';
 import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } from './data/dashboardData';
 import { CivicSignalSubmission } from './services/signalAnalysisService';
@@ -69,6 +80,14 @@ export function App() {
   const [representativeSection, setRepresentativeSection] = useState<RepresentativeSection>('dashboard');
   const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(null);
   const [accountData, setAccountData] = useState<{ fullName: string; email: string } | null>(null);
+  const [representativeNotifications, setRepresentativeNotifications] = useState<NotificationItem[]>(
+    () => loadNotifications()
+  );
+
+  // Persist representative notification read-state locally (demo persistence).
+  useEffect(() => {
+    saveNotifications(representativeNotifications);
+  }, [representativeNotifications]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -88,6 +107,25 @@ export function App() {
   const handleNavigateToRepresentative = () => {
     setCurrentPage('community-representative');
     setRepresentativeSection('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectRepresentativeNotification = (notification: NotificationItem) => {
+    setRepresentativeNotifications((prev) => markNotificationRead(prev, notification.id));
+    if (notification.relatedSection) {
+      setRepresentativeSection(notification.relatedSection);
+    } else if (notification.relatedIssueId) {
+      setRepresentativeSection('issues');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleMarkAllRepresentativeNotificationsRead = () => {
+    setRepresentativeNotifications((prev) => markAllNotificationsRead(prev));
+  };
+
+  const handleViewAllRepresentativeNotifications = () => {
+    setRepresentativeSection('notifications');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -436,12 +474,38 @@ export function App() {
           onSelectSection={setRepresentativeSection}
           communityName="Green Valley Residency"
           wardName="Ward 12, Nagpur"
+          authenticatedUser={authenticatedUser || undefined}
+          notifications={representativeNotifications}
+          onSelectNotification={handleSelectRepresentativeNotification}
+          onMarkAllNotificationsRead={handleMarkAllRepresentativeNotificationsRead}
+          onViewAllNotifications={handleViewAllRepresentativeNotifications}
+          onSignOut={() => {
+            setAuthenticatedUser(null);
+            setCurrentPage('platform');
+            showToast('Signed out of Community Representative portal.');
+          }}
         >
           {representativeSection === 'dashboard' && <CommunityDashboard />}
           {representativeSection === 'issues' && <CommunityIssues />}
           {representativeSection === 'aggregation' && <IssueAggregation />}
           {representativeSection === 'members' && <CommunityMembers />}
           {representativeSection === 'analytics' && <CommunityAnalytics />}
+          {representativeSection === 'settings' && <RepresentativeSettings />}
+          {representativeSection === 'support' && (
+            <SupportCenter onNavigateSection={setRepresentativeSection} />
+          )}
+          {representativeSection === 'profile' && (
+            <RepresentativeProfile
+              onNavigateToSettings={() => setRepresentativeSection('settings')}
+            />
+          )}
+          {representativeSection === 'notifications' && (
+            <NotificationsPage
+              notifications={representativeNotifications}
+              onSelect={handleSelectRepresentativeNotification}
+              onMarkAllRead={handleMarkAllRepresentativeNotificationsRead}
+            />
+          )}
         </RepresentativeShell>
       )}
 
