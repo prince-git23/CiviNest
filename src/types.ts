@@ -356,3 +356,146 @@ export interface CommunityDashboardData {
   municipalCases: MunicipalCase[];
   responseDistribution: ResponseDistributionData;
 }
+
+// ---------------------------------------------------------------------------
+// Municipal Command Dashboard Architecture Types
+// ---------------------------------------------------------------------------
+
+export type MunicipalDepartment = 'Electricity' | 'Water' | 'Roads' | 'Sanitation' | 'Public Safety';
+
+export type MunicipalIssueStatus =
+  | 'Unassigned'
+  | 'Assigned'
+  | 'In Progress'
+  | 'Awaiting Verification'
+  | 'Resolved'
+  | 'Reopened'
+  | 'Over SLA';
+
+export interface MunicipalContributingSignal {
+  id: string;
+  user: string;
+  avatar?: string;
+  text: string;
+  time: string;
+  distance?: string;
+  verified: boolean;
+  photosCount?: number;
+}
+
+export interface MunicipalSensorTelemetry {
+  sensorId: string;
+  type: string;
+  reading: string;
+  unit: string;
+  baseline: string;
+  deviation: string;
+  anomalyScore: number;
+  lastPing: string;
+}
+
+export interface MunicipalAssignedTeam {
+  teamId: string;
+  teamName: string;
+  leadEngineer: string;
+  personnelCount: number;
+  contactRadio: string;
+  dispatchedAt?: string;
+  estimatedArrival?: string;
+  notes?: string;
+}
+
+export interface MunicipalIssueItem {
+  id: string;
+  issueCode: string; // e.g. "EV-8821", "WT-4492"
+  title: string;
+  description: string;
+  priorityScore: number; // e.g. 92, 88
+  aiConfidence: number; // e.g. 91, 98
+  reportedAgo: string; // e.g. "42m ago"
+  reportedTimestamp: string;
+  affectedProperties: number; // e.g. 14, 1250
+  reportCount: number; // e.g. 47, 112
+  department: MunicipalDepartment;
+  status: MunicipalIssueStatus;
+  slaTargetHours: number;
+  slaRemainingHours: number;
+  isOverSla: boolean;
+  isLowConfidence: boolean;
+  isReopened: boolean;
+  location: {
+    address: string;
+    ward: string;
+    sector: string;
+    landmarks?: string;
+    coordinates: { lat: number; lng: number };
+  };
+  assignedTeam?: MunicipalAssignedTeam | null;
+  contributingSignals: MunicipalContributingSignal[];
+  sensorTelemetry?: MunicipalSensorTelemetry | null;
+  aiRationale: string;
+  recommendedAction: string;
+  timeline?: {
+    time: string;
+    status: string;
+    note: string;
+    actor: string;
+  }[];
+}
+
+export interface MunicipalMetricsData {
+  criticalIssuesCount: number;
+  criticalIssuesTrend: string;
+  activeClustersCount: number;
+  activeClustersTrend: string;
+  affectedPropertiesCount: number;
+  estimatedCitizensAffected: number;
+  lowConfidenceCount: number;
+  overSlaCount: number;
+  reopenedCount: number;
+}
+
+export interface MunicipalClusterSummary {
+  id: string;
+  clusterCode: string;
+  title: string;
+  location: string;
+  issueCount: number;
+  relativeIntensity: number; // 0 to 100 percentage
+  category: 'lighting' | 'water' | 'roads' | 'sanitation' | 'safety';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'in_progress' | 'investigating';
+  coordinates: { lat: number; lng: number };
+  affectedHouseholds: number;
+}
+
+export interface MunicipalDepartmentWorkload {
+  id: string;
+  department: MunicipalDepartment;
+  activeCases: number;
+  capacity: number;
+  utilizationPercentage: number;
+  slaRisk: 'low' | 'moderate' | 'high' | 'critical';
+  assignedTeamsCount: number;
+  availableTeamsCount: number;
+  avgResponseHours: number;
+  color: string;
+}
+
+export interface MunicipalSystemStatusData {
+  status: 'Operational' | 'Degraded' | 'Maintenance' | 'Offline';
+  latencyMs: number;
+  uptimePercentage: number;
+  activeMeshNodes: number;
+  totalMeshNodes: number;
+  lastHeartbeat: string;
+  telemetryStreamActive: boolean;
+}
+
+export interface MunicipalDashboardDataset {
+  metrics: MunicipalMetricsData;
+  issues: MunicipalIssueItem[];
+  clusters: MunicipalClusterSummary[];
+  departmentWorkloads: MunicipalDepartmentWorkload[];
+  systemStatus: MunicipalSystemStatusData;
+}

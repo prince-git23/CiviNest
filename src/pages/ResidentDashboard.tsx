@@ -44,6 +44,7 @@ interface ResidentDashboardProps {
   onNavigateToHowItWorks?: () => void;
   onNavigateToAuth?: () => void;
   onNavigateToCreateSignal?: () => void;
+  onNavigateToMunicipal?: () => void;
 }
 
 export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
@@ -54,6 +55,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
   onNavigateToHowItWorks,
   onNavigateToAuth,
   onNavigateToCreateSignal,
+  onNavigateToMunicipal,
 }) => {
   const [data, setData] = useState<DashboardDataset>(initialData);
   const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'reports' | 'community' | 'impact'>(initialTab);
@@ -276,6 +278,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
         userName={data.user.name}
         onOpenReportModal={onNavigateToCreateSignal || (() => setIsReportModalOpen(true))}
         onNavigateLanding={onNavigateToPlatform}
+        onNavigateToMunicipal={onNavigateToMunicipal}
       />
 
       {/* Mobile Sidebar Toggle Button */}

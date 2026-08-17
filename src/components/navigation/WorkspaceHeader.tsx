@@ -33,6 +33,7 @@ export interface WorkspaceHeaderProps {
   onOpenReportModal: () => void;
   onNavigateToCreateSignal?: () => void;
   onNavigateLanding?: () => void;
+  onNavigateToMunicipal?: () => void;
   onSignOut?: () => void;
 }
 
@@ -45,6 +46,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onOpenReportModal,
   onNavigateToCreateSignal,
   onNavigateLanding,
+  onNavigateToMunicipal,
   onSignOut,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -300,6 +302,20 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
                   </div>
 
                   <div className="border-t border-[#F3F4F6] pt-1">
+                    {onNavigateToMunicipal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          onNavigateToMunicipal();
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-[#0F1E36] font-semibold hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-[#0F1E36]" />
+                        <span>Municipal Command Center</span>
+                      </button>
+                    )}
+
                     {onNavigateLanding && (
                       <button
                         type="button"

@@ -10,6 +10,7 @@ export interface DashboardHeaderProps {
   onOpenReportModal: () => void;
   onNavigateToCreateSignal?: () => void;
   onNavigateLanding?: () => void;
+  onNavigateToMunicipal?: () => void;
   onSignOut?: () => void;
 }
 
@@ -22,6 +23,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onOpenReportModal,
   onNavigateToCreateSignal,
   onNavigateLanding,
+  onNavigateToMunicipal,
   onSignOut,
 }) => {
   return (
@@ -34,6 +36,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       onOpenReportModal={onOpenReportModal}
       onNavigateToCreateSignal={onNavigateToCreateSignal}
       onNavigateLanding={onNavigateLanding}
+      onNavigateToMunicipal={onNavigateToMunicipal}
       onSignOut={onSignOut}
     />
   );

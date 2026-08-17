@@ -19,6 +19,7 @@ import { MyReportsPage } from './pages/MyReportsPage';
 import { ResolutionVerificationPage } from './pages/ResolutionVerificationPage';
 import { ClusterDetectionPage } from './pages/ClusterDetectionPage';
 import { MapExplorerPage } from './pages/MapExplorerPage';
+import { MunicipalDashboard } from './pages/MunicipalDashboard';
 import { OnboardingFormData, UserRoleConfig, DashboardReportItem, ResolutionVerificationInfo } from './types';
 import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } from './data/dashboardData';
 import { CivicSignalSubmission } from './services/signalAnalysisService';
@@ -31,6 +32,7 @@ export type AppPageId =
   | 'auth'
   | 'onboarding'
   | 'dashboard'
+  | 'municipal'
   | 'create-signal'
   | 'signal-analysis'
   | 'my-reports'
@@ -180,7 +182,11 @@ export function App() {
       },
     }));
     setTimeout(() => {
-      setCurrentPage('dashboard');
+      if (role.id === 'municipal_officer' || role.id === 'admin') {
+        setCurrentPage('municipal');
+      } else {
+        setCurrentPage('dashboard');
+      }
     }, 800);
   };
 
@@ -325,6 +331,9 @@ export function App() {
             setCurrentPage('platform');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onNavigateToMunicipal={() => {
+            handleSelectPage('municipal');
+          }}
           onSignOut={() => {
             setCurrentPage('platform');
             showToast('Signed out of resident workspace.');
@@ -425,6 +434,16 @@ export function App() {
             coordinates: { lat: 21.1458, lng: 79.0882 },
           }}
         />
+      ) : currentPage === 'municipal' ? (
+        <MunicipalDashboard
+          onNavigateToPlatform={() => handleSelectPage('platform')}
+          onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
+          onNavigateToCityMap={handleNavigateToMapExplorer}
+          onNavigateToResidentDashboard={() => handleSelectPage('dashboard')}
+          onShowToast={showToast}
+          userName={dashboardData.user.name || 'Admin User'}
+          userRole={dashboardData.user.role || 'Municipal Director'}
+        />
       ) : currentPage === 'dashboard' ? (
         <ResidentDashboard
           initialData={dashboardData}
@@ -433,6 +452,7 @@ export function App() {
           onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
           onNavigateToAuth={() => handleSelectPage('auth')}
           onNavigateToCreateSignal={() => handleSelectPage('create-signal')}
+          onNavigateToMunicipal={() => handleSelectPage('municipal')}
         />
       ) : currentPage === 'onboarding' ? (
         <OnboardingPage
