@@ -19,8 +19,10 @@ import {
   Home,
 } from 'lucide-react';
 import { CiviNestLogo } from '../common/CiviNestLogo';
+import { ProfileDropdown } from '../common/ProfileDropdown';
 import { NavigationLink } from './NavigationLink';
 import { NavigationAction } from './NavigationAction';
+import type { AuthenticatedUser } from '../../types';
 
 export type WorkspaceTabId = 'home' | 'explore' | 'reports' | 'community' | 'impact' | 'profile';
 
@@ -35,7 +37,9 @@ export interface WorkspaceHeaderProps {
   onNavigateLanding?: () => void;
   onNavigateToMunicipal?: () => void;
   onNavigateToProfile?: () => void;
+  onNavigateToRepresentative?: () => void;
   onSignOut?: () => void;
+  authenticatedUser?: AuthenticatedUser;
 }
 
 export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
@@ -49,12 +53,13 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onNavigateLanding,
   onNavigateToMunicipal,
   onNavigateToProfile,
+  onNavigateToRepresentative,
   onSignOut,
+  authenticatedUser,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -93,7 +98,6 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   ];
 
   const handleProfileClick = () => {
-    setProfileMenuOpen(false);
     if (onNavigateToProfile) {
       onNavigateToProfile();
     }
@@ -105,7 +109,6 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   };
 
   const handleCreateReportClick = () => {
-    setProfileMenuOpen(false);
     if (onNavigateToCreateSignal) {
       onNavigateToCreateSignal();
     } else {
@@ -177,7 +180,6 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
                 icon={<Bell className="w-4 h-4" />}
                 onClick={() => {
                   setNotificationsOpen(!notificationsOpen);
-                  setProfileMenuOpen(false);
                 }}
                 ariaLabel="View civic notifications"
                 title="Notifications"
@@ -242,118 +244,34 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
               title="Help & Support"
             />
 
-            {/* User Profile Pill */}
-            <div className="relative ml-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setProfileMenuOpen(!profileMenuOpen);
-                  setNotificationsOpen(false);
-                }}
-                className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] rounded-full transition-all duration-150 cursor-pointer border border-[#E5E7EB] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0F1E36]"
-                aria-label="User account menu"
-                aria-expanded={profileMenuOpen}
-              >
-                <span className="text-xs font-semibold tracking-wider uppercase text-[#111827] font-mono">
-                  {userName.toUpperCase()}
-                </span>
-                <div className="w-6 h-6 rounded-full bg-[#0F1E36] text-white flex items-center justify-center text-xs font-bold">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-              </button>
-
-              {/* Profile Dropdown */}
-              {profileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-[#E5E7EB] py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
-                  <div className="px-4 py-2 border-b border-[#F3F4F6]">
-                    <p className="text-xs font-semibold text-[#111827]">{userName}</p>
-                    <p className="text-[11px] text-[#6B7280] truncate">{userWard}</p>
+            {/* User Profile — Shared Role-Aware Dropdown */}
+            <div className="ml-1">
+              {authenticatedUser ? (
+                <ProfileDropdown
+                  user={authenticatedUser}
+                  onNavigateToResidential={() => { handleTabClick('home'); }}
+                  onNavigateToCommunity={onNavigateToRepresentative}
+                  onNavigateToMunicipal={onNavigateToMunicipal}
+                  onNavigateToMyFilings={() => handleTabClick('reports')}
+                  onNavigateToCreateSignal={handleCreateReportClick}
+                  onNavigateToImpact={() => handleTabClick('impact')}
+                  onNavigateToPublicPlatform={onNavigateLanding}
+                  onSignOut={onSignOut}
+                />
+              ) : (
+                /* Fallback for when authenticatedUser is not provided */
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] rounded-full transition-all duration-150 cursor-pointer border border-[#E5E7EB]"
+                >
+                  <span className="text-xs font-semibold tracking-wider uppercase text-[#111827] font-mono">
+                    {userName.toUpperCase()}
+                  </span>
+                  <div className="w-6 h-6 rounded-full bg-[#0F1E36] text-white flex items-center justify-center text-xs font-bold">
+                    <User className="w-3.5 h-3.5" />
                   </div>
-
-                  <div className="py-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileMenuOpen(false);
-                        handleTabClick('impact');
-                      }}
-                      className="w-full px-4 py-2 text-left text-xs text-[#374151] hover:bg-[#F9FAFB] flex items-center justify-between cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Award className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Civic Impact Score</span>
-                      </span>
-                      <span className="text-[10px] font-mono font-bold bg-blue-50 text-[#2563EB] px-1.5 py-0.5 rounded">
-                        {impactPoints} pts
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileMenuOpen(false);
-                        handleTabClick('reports');
-                      }}
-                      className="w-full px-4 py-2 text-left text-xs text-[#374151] hover:bg-[#F9FAFB] flex items-center gap-2 cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-slate-500" />
-                      <span>My Filings & History</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleCreateReportClick}
-                      className="w-full px-4 py-2 text-left text-xs text-[#2563EB] font-medium hover:bg-blue-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-blue-600" />
-                      <span>File New Civic Signal</span>
-                    </button>
-                  </div>
-
-                  <div className="border-t border-[#F3F4F6] pt-1">
-                    {onNavigateToMunicipal && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          onNavigateToMunicipal();
-                        }}
-                        className="w-full px-4 py-2 text-left text-xs text-[#0F1E36] font-semibold hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Shield className="w-3.5 h-3.5 text-[#0F1E36]" />
-                        <span>Municipal Command Center</span>
-                      </button>
-                    )}
-
-                    {onNavigateLanding && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          onNavigateLanding();
-                        }}
-                        className="w-full px-4 py-2 text-left text-xs text-[#4B5563] hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Switch to Public Platform</span>
-                      </button>
-                    )}
-
-                    {onSignOut && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          onSignOut();
-                        }}
-                        className="w-full px-4 py-2 text-left text-xs text-[#DC2626] hover:bg-red-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <LogOut className="w-3.5 h-3.5 text-red-500" />
-                        <span>Sign Out</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
+                </button>
               )}
             </div>
 

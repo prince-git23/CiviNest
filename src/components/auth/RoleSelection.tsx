@@ -47,9 +47,9 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({
           How will you use CiviNest?
         </p>
 
-        {/* Role Cards List */}
+        {/* Role Cards List — Admin is excluded from public onboarding */}
         <div className="space-y-3">
-          {USER_ROLES.map((role) => (
+          {USER_ROLES.filter((r) => !r.hiddenFromOnboarding).map((role) => (
             <RoleCard
               key={role.id}
               role={role}

@@ -13,17 +13,24 @@ import HowItWorksPage from './pages/HowItWorksPage';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ResidentDashboard from './pages/ResidentDashboard';
-import CreateCivicSignalPage from './pages/CreateCivicSignalPage';
+import { CreateReportPage } from './pages/CreateReportPage';
 import { SignalAnalysisPage } from './pages/SignalAnalysisPage';
 import { MyReportsPage } from './pages/MyReportsPage';
 import { ResolutionVerificationPage } from './pages/ResolutionVerificationPage';
 import { ClusterDetectionPage } from './pages/ClusterDetectionPage';
 import { MapExplorerPage } from './pages/MapExplorerPage';
-import { MunicipalDashboard } from './pages/MunicipalDashboard';
+import { MunicipalPortal } from './pages/municipal/MunicipalPortal';
 import { DiscussionsPage } from './pages/DiscussionsPage';
 import { ImpactScorePage } from './pages/ImpactScorePage';
 import { ProfileOptimizationPage } from './pages/ProfileOptimizationPage';
-import { OnboardingFormData, UserRoleConfig, DashboardReportItem, ResolutionVerificationInfo } from './types';
+import { RepresentativeShell } from './components/community-representative/RepresentativeShell';
+import type { RepresentativeSection } from './components/community-representative/RepresentativeSidebar';
+import { CommunityDashboard } from './pages/community-representative/CommunityDashboard';
+import { CommunityIssues } from './pages/community-representative/CommunityIssues';
+import { IssueAggregation } from './pages/community-representative/IssueAggregation';
+import { CommunityMembers } from './pages/community-representative/CommunityMembers';
+import { CommunityAnalytics } from './pages/community-representative/CommunityAnalytics';
+import { OnboardingFormData, UserRoleConfig, DashboardReportItem, ResolutionVerificationInfo, AuthenticatedUser, ROLE_DEFAULT_PERMISSIONS, ROLE_PORTAL_MAP, type PortalId, type UserRoleId } from './types';
 import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } from './data/dashboardData';
 import { CivicSignalSubmission } from './services/signalAnalysisService';
 import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicClusterData } from './services/clusterService';
@@ -44,7 +51,8 @@ export type AppPageId =
   | 'map-explorer'
   | 'discussions'
   | 'impact-score'
-  | 'profile-optimization';
+  | 'profile-optimization'
+  | 'community-representative';
 
 export function App() {
   // CRITICAL REQUIREMENT: Application entry MUST be the public landing platform
@@ -56,6 +64,8 @@ export function App() {
   const [selectedVerificationReport, setSelectedVerificationReport] = useState<DashboardReportItem | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [representativeSection, setRepresentativeSection] = useState<RepresentativeSection>('dashboard');
+  const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -69,6 +79,12 @@ export function App() {
       setDashboardActiveSection('overview');
     }
     setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToRepresentative = () => {
+    setCurrentPage('community-representative');
+    setRepresentativeSection('dashboard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -177,6 +193,23 @@ export function App() {
   };
 
   const handleLoginSuccess = (role: UserRoleConfig) => {
+    // Build the authenticated user from role info
+    const newUser: AuthenticatedUser = {
+      id: `user-${Date.now()}`,
+      name: dashboardData.user.name || 'User',
+      email: role.defaultEmail,
+      role: role.id,
+      permissions: ROLE_DEFAULT_PERMISSIONS[role.id] || [],
+      locality: dashboardData.user.community || 'Dharampeth',
+      ward: dashboardData.user.ward || 'Ward 14',
+      city: dashboardData.user.city || 'Nagpur',
+      department: role.id === 'municipal_officer' ? 'Municipal Operations' : undefined,
+      impactScore: dashboardData.impact.points,
+      currentPortal: ROLE_PORTAL_MAP[role.id] || 'residential',
+      hasCommunityRepRole: role.id === 'community_rep',
+    };
+    setAuthenticatedUser(newUser);
+
     showToast(`Authenticated as ${role.title} (${role.label}) — Civic Intelligence Active`);
     setDashboardData((prev) => ({
       ...prev,
@@ -186,7 +219,14 @@ export function App() {
       },
     }));
     setTimeout(() => {
-      if (role.id === 'municipal_officer' || role.id === 'admin') {
+      const targetPortal = ROLE_PORTAL_MAP[role.id];
+      if (targetPortal === 'municipal') {
+        setCurrentPage('municipal');
+      } else if (targetPortal === 'community') {
+        setCurrentPage('community-representative');
+        setRepresentativeSection('dashboard');
+      } else if (targetPortal === 'admin') {
+        // Admin portal — for now show municipal as placeholder
         setCurrentPage('municipal');
       } else {
         setCurrentPage('dashboard');
@@ -325,6 +365,7 @@ export function App() {
 
   const isPublicContext = currentPage === 'platform' || currentPage === 'how-it-works';
   const isWorkspaceContext = currentPage === 'dashboard' || currentPage === 'my-reports' || currentPage === 'map-explorer' || currentPage === 'discussions' || currentPage === 'impact-score' || currentPage === 'profile-optimization';
+  const isRepresentativeContext = currentPage === 'community-representative';
 
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
@@ -371,19 +412,38 @@ export function App() {
           onNavigateToMunicipal={() => {
             handleSelectPage('municipal');
           }}
+          onNavigateToRepresentative={handleNavigateToRepresentative}
           onNavigateToProfile={() => {
             setCurrentPage('profile-optimization');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onSignOut={() => {
+            setAuthenticatedUser(null);
             setCurrentPage('platform');
             showToast('Signed out of resident workspace.');
           }}
+          authenticatedUser={authenticatedUser || undefined}
         />
       )}
 
-      {/* 3. MAIN PAGE CONTENT ROUTER */}
-      {isWorkspaceContext ? (
+      {/* 3.5. COMMUNITY REPRESENTATIVE PORTAL */}
+      {isRepresentativeContext && (
+        <RepresentativeShell
+          activeSection={representativeSection}
+          onSelectSection={setRepresentativeSection}
+          communityName="Green Valley Residency"
+          wardName="Ward 12, Nagpur"
+        >
+          {representativeSection === 'dashboard' && <CommunityDashboard />}
+          {representativeSection === 'issues' && <CommunityIssues />}
+          {representativeSection === 'aggregation' && <IssueAggregation />}
+          {representativeSection === 'members' && <CommunityMembers />}
+          {representativeSection === 'analytics' && <CommunityAnalytics />}
+        </RepresentativeShell>
+      )}
+
+      {/* 4. MAIN PAGE CONTENT ROUTER */}
+      {!isRepresentativeContext && isWorkspaceContext && (
         <div className="flex flex-col flex-1">
           {/* Mobile Sidebar Toggle Button */}
           <div className="lg:hidden px-4 py-2 bg-[#F3F4F6] border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
@@ -483,7 +543,9 @@ export function App() {
             </main>
           </div>
         </div>
-      ) : (
+      )}
+
+      {!isRepresentativeContext && !isWorkspaceContext && (
         currentPage === 'cluster-detection' ? (
           <ClusterDetectionPage
             initialCluster={activeCluster}
@@ -542,13 +604,11 @@ export function App() {
             }}
           />
         ) : currentPage === 'create-signal' ? (
-          <CreateCivicSignalPage
+          <CreateReportPage
             onBackToDashboard={() => handleSelectPage('dashboard')}
-            onNavigateToPlatform={() => handleSelectPage('platform')}
-            onNavigateToAuth={() => handleSelectPage('auth')}
-            onNavigateToAnalysis={handleDraftToAnalysis}
+            onNavigateToMyReports={() => handleSelectPage('my-reports')}
             onSignalSubmitted={handleSignalSubmissionCompleted}
-            initialDraft={currentSignalDraft || undefined}
+            authenticatedUser={authenticatedUser || undefined}
             initialLocation={{
               address: `${dashboardData.user.community}, ${dashboardData.user.city}`,
               ward: dashboardData.user.ward,
@@ -558,14 +618,12 @@ export function App() {
             }}
           />
         ) : currentPage === 'municipal' ? (
-          <MunicipalDashboard
-            onNavigateToPlatform={() => handleSelectPage('platform')}
-            onNavigateToHowItWorks={() => handleSelectPage('how-it-works')}
-            onNavigateToCityMap={handleNavigateToMapExplorer}
-            onNavigateToResidentDashboard={() => handleSelectPage('dashboard')}
-            onShowToast={showToast}
-            userName={dashboardData.user.name || 'Admin User'}
-            userRole={dashboardData.user.role || 'Municipal Director'}
+          <MunicipalPortal
+            onSwitchToCitizenView={() => {
+              setAuthenticatedUser(null);
+              handleSelectPage('dashboard');
+            }}
+            authenticatedUser={authenticatedUser || undefined}
           />
         ) : currentPage === 'onboarding' ? (
           <OnboardingPage

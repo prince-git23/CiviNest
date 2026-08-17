@@ -44,7 +44,55 @@ export interface AuditEvent {
   isHuman?: boolean;
 }
 
-export type UserRoleId = 'resident' | 'community_rep' | 'municipal_officer' | 'admin';
+export type UserRoleId = 'resident' | 'community_rep' | 'municipal_officer' | 'department_head' | 'admin';
+
+export type PortalId = 'residential' | 'community' | 'municipal' | 'admin';
+
+export type Permission =
+  | 'view_residential'
+  | 'file_signal'
+  | 'verify_resolution'
+  | 'view_community'
+  | 'manage_community'
+  | 'view_municipal'
+  | 'assign_department'
+  | 'manage_issues'
+  | 'view_admin'
+  | 'manage_users'
+  | 'manage_roles'
+  | 'view_audit'
+  | 'system_settings';
+
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRoleId;
+  permissions: Permission[];
+  locality: string;
+  ward: string;
+  city: string;
+  department?: string;
+  impactScore?: number;
+  currentPortal: PortalId;
+  hasCommunityRepRole?: boolean;
+}
+
+export const ROLE_PORTAL_MAP: Record<UserRoleId, PortalId> = {
+  resident: 'residential',
+  community_rep: 'community',
+  municipal_officer: 'municipal',
+  department_head: 'municipal',
+  admin: 'admin',
+};
+
+export const ROLE_DEFAULT_PERMISSIONS: Record<UserRoleId, Permission[]> = {
+  resident: ['view_residential', 'file_signal', 'verify_resolution'],
+  community_rep: ['view_residential', 'file_signal', 'verify_resolution', 'view_community', 'manage_community'],
+  municipal_officer: ['view_residential', 'view_municipal', 'assign_department', 'manage_issues'],
+  department_head: ['view_residential', 'view_municipal', 'assign_department', 'manage_issues'],
+  admin: ['view_residential', 'view_community', 'view_municipal', 'view_admin', 'manage_users', 'manage_roles', 'view_audit', 'system_settings'],
+};
 
 export interface UserRoleConfig {
   id: UserRoleId;
@@ -57,6 +105,8 @@ export interface UserRoleConfig {
   accessScope: string;
   cameraPosition: [number, number, number];
   cameraTarget: [number, number, number];
+  /** If true, this role is excluded from public onboarding role selection */
+  hiddenFromOnboarding?: boolean;
 }
 
 export type OnboardingStepId = 'profile' | 'location' | 'community' | 'interests' | 'review';

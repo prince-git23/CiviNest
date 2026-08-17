@@ -48,6 +48,7 @@ export const USER_ROLES: UserRoleConfig[] = [
     accessScope: 'Full telemetry, AI pipeline parameters & cryptographically auditable trails',
     cameraPosition: [16, 18, 18],
     cameraTarget: [0, 1.2, 0],
+    hiddenFromOnboarding: true,
   },
 ];
 
