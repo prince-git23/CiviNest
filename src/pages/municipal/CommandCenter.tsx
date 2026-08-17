@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 import {
   AlertTriangle,
   TrendingUp,
@@ -15,16 +16,92 @@ import {
   aiBriefData,
   municipalIssues,
 } from '../../data/municipalMockData';
+import { CivicMap } from '../../components/map/CivicMap';
+import type { MapViewport } from '../../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
+import { getIssuesForViewport, getClustersForViewport } from '../../services/geo/mapDataService';
 
 interface CommandCenterProps {
   onSelectPage?: (page: string) => void;
 }
 
 export const CommandCenter: React.FC<CommandCenterProps> = ({ onSelectPage }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const metricsRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const queueRef = useRef<HTMLDivElement>(null);
+  const briefRef = useRef<HTMLDivElement>(null);
+  const deptRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || !containerRef.current) return;
+
+    const ctx = gsap.context(() => {
+      // Stagger metric cards entrance
+      if (metricsRef.current) {
+        gsap.from(metricsRef.current.children, {
+          y: 20,
+          opacity: 0,
+          duration: 0.4,
+          stagger: 0.06,
+          ease: 'power2.out',
+        });
+      }
+
+      // Map entrance
+      if (mapRef.current) {
+        gsap.from(mapRef.current, {
+          y: 30,
+          opacity: 0,
+          duration: 0.5,
+          delay: 0.2,
+          ease: 'power3.out',
+        });
+      }
+
+      // Priority queue entrance
+      if (queueRef.current) {
+        gsap.from(queueRef.current, {
+          x: 20,
+          opacity: 0,
+          duration: 0.5,
+          delay: 0.3,
+          ease: 'power2.out',
+        });
+      }
+
+      // AI Brief entrance
+      if (briefRef.current) {
+        gsap.from(briefRef.current, {
+          x: 20,
+          opacity: 0,
+          duration: 0.5,
+          delay: 0.4,
+          ease: 'power2.out',
+        });
+      }
+
+      // Department cards stagger
+      if (deptRef.current) {
+        gsap.from(deptRef.current.children, {
+          y: 15,
+          opacity: 0,
+          duration: 0.4,
+          stagger: 0.08,
+          delay: 0.35,
+          ease: 'power2.out',
+        });
+      }
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6">
       {/* ── Top Metrics Row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div ref={metricsRef} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {commandMetrics.map((metric) => (
           <div
             key={metric.label}
@@ -60,7 +137,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({ onSelectPage }) =>
         {/* Left 2/3: Spatial Intelligence Map + Department Cards */}
         <div className="lg:col-span-2 space-y-6">
           {/* Spatial Intelligence Map */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <div ref={mapRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-[#111827]">Spatial Intelligence</h3>
@@ -74,8 +151,15 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({ onSelectPage }) =>
               </button>
             </div>
 
-            {/* Map Placeholder (dark area) */}
-            <div className="relative h-80 bg-[#1A2332] flex items-center justify-center">
+            {/* Real Operational Map */}
+            <div className="relative h-80">
+              <CivicMap
+                viewport={{ ...DEFAULT_VIEWPORT, zoom: 12 }}
+                issues={getIssuesForViewport({ ...DEFAULT_VIEWPORT, zoom: 12 })}
+                clusters={getClustersForViewport({ ...DEFAULT_VIEWPORT, zoom: 12 })}
+                className="w-full h-full"
+                style={{ height: 320 }}
+              />
               {/* Critical Mass Detection Overlay */}
               <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-sm bg-white rounded-xl shadow-lg border border-[#E5E7EB] p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -96,7 +180,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({ onSelectPage }) =>
           </div>
 
           {/* Department Cards Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div ref={deptRef} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {departments.slice(0, 4).map((dept) => (
               <div
                 key={dept.id}
@@ -123,7 +207,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({ onSelectPage }) =>
         {/* Right 1/3: AI Priority Queue + AI Brief */}
         <div className="space-y-6">
           {/* AI Priority Queue */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <div ref={queueRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E5E7EB]">
               <h3 className="text-sm font-semibold text-[#111827]">AI Priority Queue</h3>
               <p className="text-xs text-[#6B7280] mt-0.5">
@@ -178,7 +262,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({ onSelectPage }) =>
           </div>
 
           {/* AI Municipal Brief */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <div ref={briefRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E5E7EB]">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#6B7280]" />

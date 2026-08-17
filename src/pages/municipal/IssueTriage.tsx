@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 import {
   Download,
   Sparkles,
@@ -10,6 +11,10 @@ import {
   Info,
 } from 'lucide-react';
 import { municipalIssues, type MunicipalIssue, type IssueCategory, type DepartmentType } from '../../data/municipalMockData';
+import { CivicMap } from '../../components/map/CivicMap';
+import type { MapViewport } from '../../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT, CATEGORY_COLORS } from '../../services/geo/geoTypes';
+import { getIssuesForViewport } from '../../services/geo/mapDataService';
 
 type FilterPriority = 'all' | 'critical' | 'high' | 'medium' | 'low';
 type FilterDept = 'all' | DepartmentType;
@@ -17,12 +22,38 @@ type FilterWard = 'all' | string;
 type FilterStatus = 'all' | string;
 
 export const IssueTriage: React.FC = () => {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from(headerRef.current, { y: -15, opacity: 0, duration: 0.4, ease: 'power2.out' });
+      gsap.from(filtersRef.current, { y: 10, opacity: 0, duration: 0.3, delay: 0.1, ease: 'power2.out' });
+      if (mapRef.current) {
+        gsap.from(mapRef.current, { y: 20, opacity: 0, duration: 0.4, delay: 0.15, ease: 'power2.out' });
+      }
+      if (tableRef.current) {
+        gsap.from(tableRef.current, { y: 20, opacity: 0, duration: 0.5, delay: 0.25, ease: 'power2.out' });
+      }
+    });
+
+    return () => ctx.revert();
+  }, []);
+
   const [priorityFilter, setPriorityFilter] = useState<FilterPriority>('all');
   const [deptFilter, setDeptFilter] = useState<FilterDept>('all');
   const [wardFilter, setWardFilter] = useState<FilterWard>('all');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [slaViolatedOnly, setSlaViolatedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [mapViewport] = useState<MapViewport>({ ...DEFAULT_VIEWPORT, zoom: 12 });
+  const mapIssues = getIssuesForViewport(mapViewport);
 
   const filteredIssues = municipalIssues.filter((issue) => {
     if (priorityFilter !== 'all') {
@@ -81,7 +112,7 @@ export const IssueTriage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#111827]">Civic Issue Triage</h1>
           <p className="text-sm text-[#6B7280] mt-1">
@@ -101,7 +132,7 @@ export const IssueTriage: React.FC = () => {
       </div>
 
       {/* ── Filter Bar ── */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+      <div ref={filtersRef} className="bg-white rounded-xl border border-[#E5E7EB] p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
             <Filter className="w-3.5 h-3.5" />
@@ -182,8 +213,27 @@ export const IssueTriage: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Geographic Context Map ── */}
+      <div ref={mapRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#F3F4F6] flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">
+            Issue Geography — {filteredIssues.length} issues in view
+          </span>
+          <span className="text-[10px] text-[#9CA3AF] font-mono">Demo Data</span>
+        </div>
+        <div className="h-48 relative">
+          <CivicMap
+            viewport={mapViewport}
+            issues={mapIssues}
+            className="w-full h-full"
+            style={{ height: 192 }}
+            compact={true}
+          />
+        </div>
+      </div>
+
       {/* ── Issues Table ── */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+      <div ref={tableRef} className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
         {/* Table Header */}
         <div className="grid grid-cols-12 gap-4 px-5 py-3 bg-[#F9FAFB] border-b border-[#E5E7EB] text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">
           <div className="col-span-1">Priority</div>
@@ -221,8 +271,12 @@ export const IssueTriage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Location */}
-              <div className="col-span-2 min-w-0">
+              {/* Location with map dot */}
+              <div className="col-span-2 min-w-0 flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: CATEGORY_COLORS[issue.category] || '#6B7280' }}
+                />
                 <p className="text-sm text-[#374151] truncate">
                   {issue.ward}, {issue.locality}
                 </p>

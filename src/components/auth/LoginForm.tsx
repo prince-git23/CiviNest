@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, CheckCircle2, Shield, Sparkles } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, CheckCircle2, Shield } from 'lucide-react';
 import { UserRoleConfig } from '../../types';
 import { TrustIndicators } from './TrustIndicators';
 
@@ -14,8 +14,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   onChangeRole,
   onLoginSuccess,
 }) => {
-  const [credential, setCredential] = useState(role.defaultEmail);
-  const [password, setPassword] = useState('••••••••••••');
+  const [credential, setCredential] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -148,8 +148,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               />
               <span>Remember this session</span>
             </label>
-
-            <span className="text-[#9CA3AF] text-[11px] font-mono">2FA Enforced</span>
           </div>
 
           {/* Error message */}
@@ -184,18 +182,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             )}
           </button>
 
-          {/* Demo shortcut */}
-          <button
-            type="button"
-            onClick={() => {
-              setCredential(role.defaultEmail);
-              setPassword('CivicPass2026!');
-            }}
-            className="w-full text-center text-[11.5px] text-[#64748B] hover:text-[#0F1E36] transition-colors py-1 flex items-center justify-center gap-1 cursor-pointer"
-          >
-            <Sparkles className="w-3 h-3 text-[#2563EB]" />
-            <span>Use default demo credentials for {role.title}</span>
-          </button>
+
         </form>
       </div>
 

@@ -15,7 +15,11 @@ import {
 import { CivicMetricCard } from '../../components/community/CivicMetricCard';
 import { CommunityContextHeader } from '../../components/community/CommunityContextHeader';
 import { CommunityHealthCard } from '../../components/community/CommunityHealthCard';
-import CommunityMapScene from '../../components/community-representative/CommunityMapScene';
+import { CivicMap } from '../../components/map/CivicMap';
+import { MapSearch } from '../../components/map/MapSearch';
+import type { MapViewport } from '../../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
+import { getIssuesForViewport } from '../../services/geo/mapDataService';
 import type {
   CommunityContext,
   CommunityHealthData,
@@ -197,10 +201,12 @@ export const CommunityDashboard: React.FC = () => {
                 Interactive 3D visualization of community issues and infrastructure
               </p>
             </div>
-            <div className="h-[400px]">
-              <CommunityMapScene 
-                issues={mockCommunityData.activeIssues}
-                onIssueSelect={setSelectedIssue}
+            <div className="h-[400px] relative">
+              <CivicMap
+                viewport={{ ...DEFAULT_VIEWPORT, zoom: 14 }}
+                issues={getIssuesForViewport({ ...DEFAULT_VIEWPORT, zoom: 14 })}
+                className="w-full h-full"
+                style={{ height: 400 }}
               />
             </div>
             {selectedIssue && (

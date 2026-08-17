@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import gsap from 'gsap';
 import {
   Calendar,
   Download,
@@ -71,6 +72,16 @@ export const DepartmentOperations: React.FC = () => {
     return 'bg-red-500';
   };
 
+  // GSAP card entrance animations
+  useEffect(() => {
+    const cards = document.querySelectorAll('[data-animate="card"]');
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 15, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.05, ease: 'power2.out' }
+    );
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
@@ -97,7 +108,7 @@ export const DepartmentOperations: React.FC = () => {
       {/* ── Summary Metrics ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {summaryMetrics.map((metric) => (
-          <div key={metric.label} className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+          <div key={metric.label} data-animate="card" className="bg-white rounded-xl border border-[#E5E7EB] p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">
                 {metric.label}
@@ -153,6 +164,7 @@ export const DepartmentOperations: React.FC = () => {
           {departments.map((dept) => (
             <div
               key={dept.id}
+              data-animate="card"
               className="bg-white rounded-xl border border-[#E5E7EB] p-5 hover:shadow-md transition-shadow cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">

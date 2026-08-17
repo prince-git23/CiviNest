@@ -13,6 +13,10 @@ import {
   Clock,
 } from 'lucide-react';
 import { wards, fieldTeams, auditLog, type WardData, type FieldTeam } from '../../data/municipalMockData';
+import { CivicMap } from '../../components/map/CivicMap';
+import type { MapViewport } from '../../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
+import { getDeployments } from '../../services/geo/mapDataService';
 
 export const TeamsWardManagement: React.FC = () => {
   const [slaHours, setSlaHours] = useState(48);
@@ -211,43 +215,16 @@ export const TeamsWardManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Active Deployment Map */}
+          {/* Real Active Deployment Map */}
           <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-            <div className="relative h-48 bg-[#E8F0E8] flex items-center justify-center">
-              {/* Simplified map */}
-              <div className="absolute inset-0 opacity-30">
-                <svg viewBox="0 0 400 200" className="w-full h-full">
-                  <line x1="0" y1="100" x2="400" y2="100" stroke="#94A3B8" strokeWidth="2" />
-                  <line x1="200" y1="0" x2="200" y2="200" stroke="#94A3B8" strokeWidth="2" />
-                  <line x1="100" y1="0" x2="100" y2="200" stroke="#CBD5E1" strokeWidth="1" />
-                  <line x1="300" y1="0" x2="300" y2="200" stroke="#CBD5E1" strokeWidth="1" />
-                </svg>
-              </div>
-
-              {/* Deployment Markers */}
-              <div className="absolute top-1/3 left-1/3">
-                <div className="w-6 h-6 rounded-full bg-blue-500 border-2 border-white shadow-md" />
-              </div>
-              <div className="absolute top-1/2 left-1/2">
-                <div className="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow-md" />
-              </div>
-              <div className="absolute bottom-1/3 right-1/3">
-                <div className="w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow-md" />
-              </div>
-
-              {/* Label */}
-              <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-[#E5E7EB]">
-                <p className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wide">
-                  Active Deployment
-                </p>
-                <p className="text-sm font-bold text-[#111827]">Zone 4 Aggregation</p>
-              </div>
-
-              <button className="absolute bottom-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827]">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              </button>
+            <div className="relative h-48">
+              <CivicMap
+                viewport={{ ...DEFAULT_VIEWPORT, zoom: 12 }}
+                deployments={getDeployments()}
+                className="w-full h-full"
+                style={{ height: 192 }}
+                compact={true}
+              />
             </div>
           </div>
         </div>

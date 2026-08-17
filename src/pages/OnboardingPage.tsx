@@ -15,17 +15,19 @@ import SceneStatus from '../components/onboarding/SceneStatus';
 interface OnboardingPageProps {
   onBackToPlatform: () => void;
   onComplete: (data: OnboardingFormData) => void;
+  accountData?: { fullName: string; email: string } | null;
 }
 
 export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   onBackToPlatform,
   onComplete,
+  accountData,
 }) => {
   const [currentStep, setCurrentStep] = useState<OnboardingStepId>('profile');
   const [formData, setFormData] = useState<OnboardingFormData>({
     profile: {
-      fullName: '',
-      email: '',
+      fullName: accountData?.fullName || '',
+      email: accountData?.email || '',
       phone: '',
       countryCode: '+91',
     },
@@ -159,6 +161,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                 data={formData.profile}
                 onUpdate={updateProfile}
                 onNext={goToNextStep}
+                accountEmail={accountData?.email}
               />
             )}
 

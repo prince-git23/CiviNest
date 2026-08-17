@@ -11,6 +11,7 @@ import Footer from './components/Footer';
 import LiveReportSimulatorModal from './components/sections/LiveReportSimulatorModal';
 import HowItWorksPage from './pages/HowItWorksPage';
 import AuthPage from './pages/AuthPage';
+import { CreateAccountPage } from './pages/CreateAccountPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ResidentDashboard from './pages/ResidentDashboard';
 import { CreateReportPage } from './pages/CreateReportPage';
@@ -40,6 +41,7 @@ export type AppPageId =
   | 'platform'
   | 'how-it-works'
   | 'auth'
+  | 'create-account'
   | 'onboarding'
   | 'dashboard'
   | 'municipal'
@@ -66,6 +68,7 @@ export function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [representativeSection, setRepresentativeSection] = useState<RepresentativeSection>('dashboard');
   const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(null);
+  const [accountData, setAccountData] = useState<{ fullName: string; email: string } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -389,7 +392,7 @@ export function App() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onNavigateGetStarted={() => {
-            setCurrentPage('onboarding');
+            setCurrentPage('create-account');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
@@ -625,15 +628,27 @@ export function App() {
             }}
             authenticatedUser={authenticatedUser || undefined}
           />
+        ) : currentPage === 'create-account' ? (
+          <CreateAccountPage
+            onBackToLanding={() => handleSelectPage('platform')}
+            onAccountCreated={(data) => {
+              setAccountData(data);
+              showToast(`Account created for ${data.fullName}. Let's set up your civic profile.`);
+              setTimeout(() => setCurrentPage('onboarding'), 200);
+            }}
+            onNavigateToSignIn={() => handleSelectPage('auth')}
+          />
         ) : currentPage === 'onboarding' ? (
           <OnboardingPage
             onBackToPlatform={() => handleSelectPage('platform')}
             onComplete={handleOnboardingComplete}
+            accountData={accountData}
           />
         ) : currentPage === 'auth' ? (
           <AuthPage
             onBackToCiviNest={() => handleSelectPage('platform')}
             onNavigateToOnboarding={() => handleSelectPage('onboarding')}
+            onNavigateToCreateAccount={() => handleSelectPage('create-account')}
             onLoginSuccess={handleLoginSuccess}
           />
         ) : currentPage === 'how-it-works' ? (

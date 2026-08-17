@@ -26,6 +26,9 @@ import { AIUnderstandingPanel, AIAnalysisState } from '../components/signal/AIUn
 import { DuplicateIssuePanel } from '../components/signal/DuplicateIssuePanel';
 import { LocationAdjustModal } from '../components/signal/LocationAdjustModal';
 import { SignalSuccessView } from '../components/signal/SignalSuccessView';
+import { CivicMap } from '../components/map/CivicMap';
+import type { MapViewport, GeoPoint } from '../services/geo/geoTypes';
+import { getIssuesForViewport } from '../services/geo/mapDataService';
 import {
   analyzeCivicSignalText,
   detectDuplicateCivicSignal,
@@ -117,6 +120,16 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
       );
     }
   }, [currentStep, direction]);
+
+  // ── Animate step progress indicator ──
+  useEffect(() => {
+    const progressBars = document.querySelectorAll('[data-progress-bar]');
+    gsap.fromTo(
+      progressBars,
+      { scaleX: 0 },
+      { scaleX: 1, duration: 0.4, ease: 'power2.out' }
+    );
+  }, [currentStep]);
 
   // ── AI analysis (runs in background) ──
   useEffect(() => {
@@ -504,9 +517,17 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
                       LIVE
                     </span>
                   </div>
-                  {/* Compact map placeholder */}
-                  <div className="w-full h-48 rounded-xl bg-[#1A2332] flex items-center justify-center">
-                    <p className="text-xs text-slate-400">Civic context map</p>
+                  {/* Real Civic Context Map */}
+                  <div className="w-full h-48 rounded-xl overflow-hidden">
+                    <CivicMap
+                      viewport={{ latitude: location.coordinates.lat, longitude: location.coordinates.lng, zoom: 15 }}
+                      issues={getIssuesForViewport({ latitude: location.coordinates.lat, longitude: location.coordinates.lng, zoom: 15 })}
+                      userLocation={{ latitude: location.coordinates.lat, longitude: location.coordinates.lng }}
+                      showUserLocation={true}
+                      className="w-full h-full"
+                      style={{ height: 192 }}
+                      compact={true}
+                    />
                   </div>
                   {/* Nearby context */}
                   <div className="mt-3 flex items-center justify-between p-2.5 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">

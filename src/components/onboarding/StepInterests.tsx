@@ -67,6 +67,7 @@ export const StepInterests: React.FC<StepInterestsProps> = ({
           <p className="text-xs sm:text-[13.5px] text-[#64748B] font-sans">
             Choose the civic issue streams and alert feeds you want to monitor.
           </p>
+          <p className="text-[11px] text-[#94A3B8] mt-1 font-sans">This step is optional — you can customize your interests later.</p>
         </div>
 
         <button
@@ -151,18 +152,22 @@ export const StepInterests: React.FC<StepInterestsProps> = ({
           <span>Back</span>
         </button>
 
-        <button
-          type="submit"
-          disabled={selectedInterests.length === 0}
-          className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow cursor-pointer ${
-            selectedInterests.length === 0
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-[#0F1E36] hover:bg-[#1E293B] active:scale-[0.99]'
-          }`}
-        >
-          <span>Continue</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onNext}
+            className="text-xs font-medium text-[#6B7280] hover:text-[#374151] transition-colors cursor-pointer px-3 py-2.5"
+          >
+            {selectedInterests.length === 0 ? 'Skip for now' : 'Skip'}
+          </button>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#0F1E36] hover:bg-[#1E293B] active:scale-[0.99] text-white text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow cursor-pointer"
+          >
+            <span>Continue</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </form>
   );

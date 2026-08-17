@@ -1,5 +1,6 @@
 /// <reference types="@react-three/fiber" />
 import React, { useState, useRef, useEffect } from 'react';
+import gsap from 'gsap';
 import {
   Search,
   SlidersHorizontal,
@@ -14,6 +15,10 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { spatialLayers, wards, departments, type SpatialLayer } from '../../data/municipalMockData';
+import { CivicMap } from '../../components/map/CivicMap';
+import type { MapViewport } from '../../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
+import { getIssuesForViewport, getClustersForViewport } from '../../services/geo/mapDataService';
 
 // Three.js dynamic import to avoid SSR issues
 let Canvas: any = null;
@@ -168,6 +173,16 @@ export const SpatialIntelligence: React.FC<SpatialIntelligenceProps> = ({ onSele
   ];
   const maxCatCount = Math.max(...topCategories.map((c) => c.count));
 
+  // GSAP panel entrance animations
+  useEffect(() => {
+    const panels = document.querySelectorAll('[data-animate="panel"]');
+    gsap.fromTo(
+      panels,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out' }
+    );
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* ── Search Bar ── */}
@@ -191,7 +206,7 @@ export const SpatialIntelligence: React.FC<SpatialIntelligenceProps> = ({ onSele
         {/* ── Left Panel: Layers ── */}
         <div className="space-y-4">
           {/* Active Layers */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+          <div data-animate="panel" className="bg-white rounded-xl border border-[#E5E7EB] p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
                 Active Layers
@@ -230,8 +245,8 @@ export const SpatialIntelligence: React.FC<SpatialIntelligenceProps> = ({ onSele
             </div>
           </div>
 
-          {/* 3D Map Controls */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex items-center justify-center gap-6">
+          {/* Map Controls */}
+          <div data-animate="panel" className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex items-center justify-center gap-6">
             <button className="flex flex-col items-center gap-1 text-[#6B7280] hover:text-[#111827] transition-colors">
               <Crosshair className="w-5 h-5" />
               <span className="text-[10px] font-semibold uppercase tracking-wide">Recenter</span>
@@ -247,30 +262,21 @@ export const SpatialIntelligence: React.FC<SpatialIntelligenceProps> = ({ onSele
           </div>
         </div>
 
-        {/* ── Center: 3D Map ── */}
-        <div className="lg:col-span-1 bg-white rounded-xl border border-[#E5E7EB] overflow-hidden min-h-[500px]">
-          {threeLoaded && ThreeCanvas ? (
-            <div className="w-full h-full min-h-[500px]">
-              <ThreeCanvas
-                shadows
-                camera={{ position: [5, 5, 5], fov: 45 }}
-                style={{ background: '#F8FAFC' }}
-              >
-                <MapScene />
-                {OrbitControls && <OrbitControls enablePan enableZoom enableRotate />}
-              </ThreeCanvas>
-            </div>
-          ) : (
-            <div className="w-full h-full min-h-[500px] bg-[#1A2332] flex items-center justify-center">
-              <p className="text-sm text-slate-400">Loading 3D Map...</p>
-            </div>
-          )}
+        {/* ── Center: Real Geographic Map ── */}
+        <div data-animate="panel" className="lg:col-span-1 bg-white rounded-xl border border-[#E5E7EB] overflow-hidden min-h-[500px]">
+          <CivicMap
+            viewport={{ ...DEFAULT_VIEWPORT, zoom: 13 }}
+            issues={getIssuesForViewport({ ...DEFAULT_VIEWPORT, zoom: 13 })}
+            clusters={getClustersForViewport({ ...DEFAULT_VIEWPORT, zoom: 13 })}
+            className="w-full h-full"
+            style={{ minHeight: 500 }}
+          />
         </div>
 
         {/* ── Right Panel: Ward Analysis ── */}
         <div className="space-y-4">
           {selectedWardData && (
-            <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+            <div data-animate="panel" className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
               <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-[#111827]">
@@ -364,7 +370,7 @@ export const SpatialIntelligence: React.FC<SpatialIntelligenceProps> = ({ onSele
           )}
 
           {/* Adjacent Ward Load */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <div data-animate="panel" className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E5E7EB]">
               <h3 className="text-sm font-semibold text-[#111827]">Adjacent Ward Load</h3>
             </div>

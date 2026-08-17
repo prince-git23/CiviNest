@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MapPin, Navigation, X, Check, Search, Compass, Loader2 } from 'lucide-react';
 import { LocationData } from './LocationSelector';
+import { CivicMap } from '../map/CivicMap';
+import type { MapViewport, GeoPoint } from '../../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
 
 interface LocationAdjustModalProps {
   isOpen: boolean;
@@ -20,6 +23,16 @@ export const LocationAdjustModal: React.FC<LocationAdjustModalProps> = ({
   const [accuracyLevel, setAccuracyLevel] = useState(currentLocation.accuracy);
   const [isDetecting, setIsDetecting] = useState(false);
 
+  const [mapViewport, setMapViewport] = useState<MapViewport>({
+    latitude: currentLocation.coordinates.lat,
+    longitude: currentLocation.coordinates.lng,
+    zoom: 15,
+  });
+  const [pinLocation, setPinLocation] = useState<GeoPoint>({
+    latitude: currentLocation.coordinates.lat,
+    longitude: currentLocation.coordinates.lng,
+  });
+
   if (!isOpen) return null;
 
   const wardPresets = [
@@ -29,6 +42,11 @@ export const LocationAdjustModal: React.FC<LocationAdjustModalProps> = ({
     { name: 'Sitabuldi', city: 'Nagpur', coords: { lat: 21.1466, lng: 79.0832 } },
     { name: 'Laxmi Nagar', city: 'Nagpur', coords: { lat: 21.1215, lng: 79.0684 } },
   ];
+
+  const handleMapClick = useCallback((point: GeoPoint) => {
+    setPinLocation(point);
+    setMapViewport((prev) => ({ ...prev, latitude: point.latitude, longitude: point.longitude }));
+  }, []);
 
   const handleGeolocate = () => {
     setIsDetecting(true);
@@ -41,13 +59,12 @@ export const LocationAdjustModal: React.FC<LocationAdjustModalProps> = ({
   };
 
   const handleSave = () => {
-    const matched = wardPresets.find((w) => w.name === selectedWard) || wardPresets[0];
     onSaveLocation({
       address: addressInput.trim() || `${selectedWard}, Nagpur`,
       ward: selectedWard,
       city: 'Nagpur',
       accuracy: accuracyLevel,
-      coordinates: matched.coords,
+      coordinates: { lat: pinLocation.latitude, lng: pinLocation.longitude },
     });
     onClose();
   };
@@ -75,6 +92,22 @@ export const LocationAdjustModal: React.FC<LocationAdjustModalProps> = ({
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Real Map for Location Selection */}
+          <div className="rounded-xl overflow-hidden border border-[#E5E7EB]">
+            <CivicMap
+              viewport={mapViewport}
+              onViewportChange={setMapViewport}
+              onMapClick={handleMapClick}
+              userLocation={{ latitude: pinLocation.latitude, longitude: pinLocation.longitude }}
+              showUserLocation={true}
+              className="w-full"
+              style={{ height: 250 }}
+              compact={true}
+            />
+          </div>
+          <p className="text-[11px] text-[#6B7280] text-center -mt-2">
+            Click on the map to set your report location
+          </p>
           {/* Quick Auto-Detect GPS */}
           <button
             type="button"

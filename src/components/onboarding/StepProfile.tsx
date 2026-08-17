@@ -6,12 +6,14 @@ interface StepProfileProps {
   data: UserProfileData;
   onUpdate: (data: Partial<UserProfileData>) => void;
   onNext: () => void;
+  accountEmail?: string;
 }
 
 export const StepProfile: React.FC<StepProfileProps> = ({
   data,
   onUpdate,
   onNext,
+  accountEmail,
 }) => {
   const [errors, setErrors] = useState<{ fullName?: string; email?: string; phone?: string }>({});
 
@@ -81,10 +83,10 @@ export const StepProfile: React.FC<StepProfileProps> = ({
         )}
       </div>
 
-      {/* Email Address field */}
+      {/* Email Address field — read-only if from account creation */}
       <div>
         <label className="block text-xs font-semibold text-[#374151] mb-1.5">
-          Email Address
+          Email Address {accountEmail && <span className="text-[#9CA3AF] font-normal">(from your account)</span>}
         </label>
         <div className="relative">
           <input
@@ -95,12 +97,18 @@ export const StepProfile: React.FC<StepProfileProps> = ({
               if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
             }}
             placeholder="e.g. arjun.mehta@example.com"
+            readOnly={Boolean(accountEmail)}
             className={`w-full px-3.5 py-3 rounded-xl border text-sm text-[#0F1E36] bg-[#F4F5F7]/90 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 outline-none transition-all placeholder:text-[#9CA3AF] ${
+              accountEmail ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''
+            } ${
               errors.email ? 'border-red-400 bg-red-50/40' : 'border-[#E5E7EB]'
             }`}
             required
           />
         </div>
+        {accountEmail && (
+          <p className="text-[11px] text-[#6B7280] mt-1">This email was used to create your account.</p>
+        )}
         {errors.email && (
           <p className="text-xs text-red-600 mt-1 font-sans">{errors.email}</p>
         )}

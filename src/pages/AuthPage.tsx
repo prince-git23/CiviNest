@@ -11,12 +11,14 @@ import { USER_ROLES } from '../components/auth/rolesData';
 interface AuthPageProps {
   onBackToCiviNest: () => void;
   onNavigateToOnboarding?: () => void;
+  onNavigateToCreateAccount?: () => void;
   onLoginSuccess?: (role: UserRoleConfig) => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onBackToCiviNest,
   onNavigateToOnboarding,
+  onNavigateToCreateAccount,
   onLoginSuccess,
 }) => {
   const [selectedRole, setSelectedRole] = useState<UserRoleConfig | null>(null);
@@ -89,7 +91,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       {/* Top Lightweight Auth Navbar */}
       <AuthNavbar
         onBackToCiviNest={onBackToCiviNest}
-        onNavigateToOnboarding={onNavigateToOnboarding}
+        onNavigateToOnboarding={onNavigateToCreateAccount}
       />
 
       {/* Main Split Layout */}
@@ -102,7 +104,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 selectedRole={selectedRole}
                 onSelectRole={handleSelectRole}
                 onHoverRole={setHoverRole}
-                onNavigateToOnboarding={onNavigateToOnboarding}
+                onNavigateToOnboarding={onNavigateToCreateAccount}
               />
             ) : selectedRole ? (
               <LoginForm

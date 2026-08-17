@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import gsap from 'gsap';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -24,6 +25,10 @@ import {
 } from '../types';
 import { WorkflowHeader } from '../components/navigation/WorkflowHeader';
 import StillNotFixedModal from '../components/reports/StillNotFixedModal';
+import { CivicMap } from '../components/map/CivicMap';
+import type { MapViewport } from '../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../services/geo/geoTypes';
+import { getIssuesForViewport } from '../services/geo/mapDataService';
 
 export interface ResolutionVerificationPageProps {
   dashboardData: DashboardDataset;
@@ -115,6 +120,16 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
     }
   };
 
+  // GSAP step entrance animations
+  useEffect(() => {
+    const sections = document.querySelectorAll('[data-animate="section"]');
+    gsap.fromTo(
+      sections,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, ease: 'power2.out' }
+    );
+  }, [verifiedState]);
+
   return (
     <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-24">
       {/* Contextual Workflow Navigation */}
@@ -132,7 +147,7 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6 sm:space-y-8 text-left">
         {/* Title & Audit Banner */}
-        <div className="border-b border-[#E2E8F0] pb-6">
+        <div data-animate="section" className="border-b border-[#E2E8F0] pb-6">
           <div className="flex items-center gap-2 mb-2.5 flex-wrap">
             <button
               onClick={onNavigateBack}
@@ -164,6 +179,7 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
         </div>
 
         {/* Verification Status Cards */}
+        <div data-animate="section">
         {verifiedState === 'confirmed' ? (
           <div className="p-6 rounded-3xl bg-emerald-50/80 border-2 border-emerald-300 text-left space-y-3">
             <div className="flex items-center gap-3">
@@ -202,9 +218,35 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
             </div>
           </div>
         ) : null}
+        </div>
+
+        {/* Issue Location Mini-Map */}
+        <div data-animate="section" className="rounded-2xl border border-[#E2E8F0] bg-white overflow-hidden shadow-xs">
+          <div className="px-4 py-3 border-b border-[#F1F5F9] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-rose-500" />
+              <span className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
+                Issue Location
+              </span>
+            </div>
+            <span className="text-[11px] text-[#94A3B8] font-mono">{activeReport.location}</span>
+          </div>
+          <div className="h-48 relative">
+            <CivicMap
+              viewport={{ ...DEFAULT_VIEWPORT, zoom: 15 }}
+              issues={getIssuesForViewport({ ...DEFAULT_VIEWPORT, zoom: 15 }).slice(0, 3)}
+              userLocation={DEFAULT_VIEWPORT}
+              showUserLocation={true}
+              className="w-full h-full"
+              style={{ height: 192 }}
+              compact={true}
+              interactive={false}
+            />
+          </div>
+        </div>
 
         {/* 2-Column Comparison Layout: Citizen Signal vs Contractor Proof */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div data-animate="section" className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           {/* Left: Original Citizen Signal */}
           <div className="rounded-3xl border border-[#E2E8F0] bg-white p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -275,6 +317,7 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
         </div>
 
         {/* Verification Action Decision Panel */}
+        <div data-animate="section">
         {verifiedState === 'unverified' && (
           <div className="rounded-3xl border-2 border-[#0F172A] bg-white p-6 sm:p-8 shadow-sm space-y-6">
             <div>
@@ -319,6 +362,7 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
             </div>
           </div>
         )}
+        </div>
 
         {/* Other Reports Waiting for Resident Audit in Your Sector */}
         <div className="pt-6 border-t border-slate-200 space-y-4">

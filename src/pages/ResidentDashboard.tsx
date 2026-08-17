@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import gsap from 'gsap';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { DashboardSidebar, DashboardViewSection } from '../components/dashboard/DashboardSidebar';
 import { CivicGreeting } from '../components/dashboard/CivicGreeting';
 import { QuickActionBar } from '../components/dashboard/QuickActionBar';
-import { CivicSpatialMap } from '../components/dashboard/CivicSpatialMap';
+import { CivicSpatialMap } from '../components/map/CivicSpatialMap';
 import { ActiveReports } from '../components/dashboard/ActiveReports';
 import { AIInsightCard } from '../components/dashboard/AIInsightCard';
 import { CivicImpactCard } from '../components/dashboard/CivicImpactCard';
@@ -169,9 +170,20 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
     showToast('Citizen verification confirmed! Resolution closed (+50 pts).');
   };
 
+  // GSAP card entrance animations
+  useEffect(() => {
+    const cards = document.querySelectorAll('[data-animate="card"]');
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out' }
+    );
+  }, []);
+
   return (
     <div className="space-y-6 pb-12">
       {/* A. Civic Greeting & Local Civic Health Card */}
+      <div data-animate="card">
       <CivicGreeting
         userName={data.user.name}
         city={data.user.city}
@@ -180,17 +192,20 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
         civicHealth={data.civicHealth}
         onExploreHealth={() => onNavigateToPage?.('map-explorer')}
       />
+      </div>
 
       {/* B. Quick Action Bar */}
+      <div data-animate="card">
       <QuickActionBar
         onReportIssue={onNavigateToCreateSignal || (() => setIsReportModalOpen(true))}
         onAddPhoto={() => setIsPhotoModalOpen(true)}
         onUseVoice={() => setIsVoiceModalOpen(true)}
         onShareLocation={() => setIsLocationModalOpen(true)}
       />
+      </div>
 
       {/* C. Spatial Intelligence 3D Map */}
-      <section className="relative">
+      <section data-animate="card" className="relative">
         <div className="flex items-center justify-between mb-3 text-left">
           <div>
             <h2 className="text-lg font-bold font-serif text-[#0F1E36]">
@@ -215,7 +230,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
       </section>
 
       {/* D. Two-Column Mid Row (Active Filings + AI Insight | Civic Impact + Community Pulse) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div data-animate="card" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Left Column */}
         <div className="space-y-6 flex flex-col">
           <ActiveReports
@@ -250,6 +265,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
       </div>
 
       {/* E. Trending Nearby Carousel */}
+      <div data-animate="card">
       <TrendingNearby
         issues={data.nearbyIssues}
         onSupportIssue={handleSupportIssue}
@@ -257,6 +273,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
           showToast(`Analyzing telemetry trends for: ${issue.title}`);
         }}
       />
+      </div>
 
       {/* 4. Feedback Toast */}
       {toastMessage && (

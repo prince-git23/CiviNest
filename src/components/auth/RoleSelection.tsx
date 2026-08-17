@@ -31,7 +31,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({
               onClick={onNavigateToOnboarding}
               className="text-[11px] font-semibold text-[#2563EB] hover:text-[#1D4ED8] underline cursor-pointer"
             >
-              New Citizen? Set up profile →
+              New to CiviNest? Create Account →
             </button>
           )}
         </div>

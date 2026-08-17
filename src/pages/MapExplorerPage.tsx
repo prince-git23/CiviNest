@@ -1,15 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   MapFilterState,
   initialMapClusters,
   civicInfrastructureNodes,
   MapClusterItem,
 } from '../services/mapExplorerService';
-import { CivicCityScene } from '../components/map-explorer/CivicCityScene';
+import { CivicMap } from '../components/map/CivicMap';
+import { MapControls as CivicMapControls } from '../components/map/MapControls';
+import { MapSearch } from '../components/map/MapSearch';
 import { MapFilterSidebar } from '../components/map-explorer/MapFilterSidebar';
-import { MapControls } from '../components/map-explorer/MapControls';
-import { MapLegend } from '../components/map-explorer/MapLegend';
 import { ClusterAnalysisDrawer } from '../components/map-explorer/ClusterAnalysisDrawer';
+import type { MapViewport, MapLayer, CivicIssue, IssueCluster } from '../services/geo/geoTypes';
+import { DEFAULT_VIEWPORT } from '../services/geo/geoTypes';
+import { getIssuesForViewport, getClustersForViewport } from '../services/geo/mapDataService';
 import {
   SlidersHorizontal,
   PlusCircle,
@@ -82,6 +85,22 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Real map state
+  const [mapViewport, setMapViewport] = useState<MapViewport>(DEFAULT_VIEWPORT);
+  const [mapLayers, setMapLayers] = useState<MapLayer[]>([
+    { id: 'issues', name: 'Civic Issues', type: 'issues', visible: true, color: '#EF4444' },
+    { id: 'clusters', name: 'Issue Clusters', type: 'clusters', visible: true, color: '#F59E0B' },
+    { id: 'wards', name: 'Ward Boundaries', type: 'wards', visible: true, color: '#94A3B8' },
+    { id: 'infrastructure', name: 'Infrastructure', type: 'infrastructure', visible: false, color: '#3B82F6' },
+  ]);
+
+  const mapIssues = useMemo(() => getIssuesForViewport(mapViewport), [mapViewport]);
+  const mapClusters = useMemo(() => getClustersForViewport(mapViewport), [mapViewport]);
+
+  const handleToggleLayer = useCallback((layerId: string) => {
+    setMapLayers((prev) => prev.map((l) => (l.id === layerId ? { ...l, visible: !l.visible } : l)));
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -218,37 +237,40 @@ export const MapExplorerPage: React.FC<MapExplorerPageProps> = ({
           onCloseMobile={() => setIsMobileFilterOpen(false)}
         />
 
-        {/* Central 3D Civic Canvas Viewport */}
+        {/* Central Real Map Viewport */}
         <main
           id="civic-3d-viewport"
           className="flex-1 relative w-full h-[calc(100vh-8.5rem)] sm:h-[calc(100vh-7.5rem)]"
         >
-          <CivicCityScene
-            clusters={filteredClusters}
-            infrastructure={civicInfrastructureNodes}
-            filters={filters}
-            selectedClusterId={selectedCluster?.id || null}
-            onSelectCluster={handleSelectCluster}
-            userWardName={userContext.ward}
-            userLocalityName={userContext.community}
-            zoomTrigger={zoomTrigger}
-            zoomOutTrigger={zoomOutTrigger}
-            locateTrigger={locateTrigger}
-            resetTrigger={resetTrigger}
+          <CivicMap
+            viewport={mapViewport}
+            onViewportChange={setMapViewport}
+            clusters={mapClusters}
+            issues={mapIssues}
+            selectedIssueId={selectedCluster?.id}
+            className="w-full h-full"
+            style={{ width: '100%', height: '100%' }}
           />
-
-          {/* Floating Map Legend */}
-          <MapLegend />
 
           {/* Floating Map Controls */}
-          <MapControls
-            onZoomIn={() => setZoomTrigger((prev) => prev + 1)}
-            onZoomOut={() => setZoomOutTrigger((prev) => prev + 1)}
-            onLocateResident={() => setLocateTrigger((prev) => prev + 1)}
-            onResetCamera={() => setResetTrigger((prev) => prev + 1)}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-          />
+          <div className="absolute top-4 right-4 z-20">
+            <CivicMapControls
+              layers={mapLayers}
+              onToggleLayer={handleToggleLayer}
+              onReset={() => setMapViewport(DEFAULT_VIEWPORT)}
+              isFullscreen={isFullscreen}
+              onFullscreen={() => setIsFullscreen(!isFullscreen)}
+            />
+          </div>
+
+          {/* Search bar */}
+          <div className="absolute top-4 left-4 z-20 w-72">
+            <MapSearch
+              onSelectLocation={(point, name) => {
+                setMapViewport((prev) => ({ ...prev, latitude: point.latitude, longitude: point.longitude, zoom: 15 }));
+              }}
+            />
+          </div>
 
           {/* Floating Cluster Quick Preview on Map (Top-Right Pill when not full drawer) */}
           {selectedCluster && !isDrawerOpen && (
