@@ -32,7 +32,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const menuItems: {
     id: DashboardViewSection;
     label: string;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     badge?: string;
   }[] = [
     {

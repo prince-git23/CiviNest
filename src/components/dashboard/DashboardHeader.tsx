@@ -29,7 +29,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   return (
     <WorkspaceHeader
       activeTab={activeTab as WorkspaceTabId}
-      onSelectTab={(tab) => onSelectTab(tab)}
+      onSelectTab={(tab) => onSelectTab(tab as 'home' | 'explore' | 'reports' | 'community' | 'impact')}
       userName={userName}
       userWard={userWard}
       impactPoints={impactPoints}

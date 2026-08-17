@@ -74,7 +74,7 @@ export const ClusterAIInsight: React.FC<ClusterAIInsightProps> = ({ cluster }) =
                 <span className="font-bold text-[#0F172A] flex items-center gap-1">
                   {sig.user}
                   {sig.verified && (
-                    <ShieldCheck className="w-3 h-3 text-emerald-600" title="Verified Citizen" />
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" aria-label="Verified Citizen" />
                   )}
                 </span>
                 <span className="font-mono text-[#64748B]">{sig.time} · {sig.distance}</span>

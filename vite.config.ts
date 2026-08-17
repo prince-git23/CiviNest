@@ -12,6 +12,14 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // Proxy API calls to the backend so the frontend uses same-origin requests
+      // (no CORS issues regardless of which host/port the app is opened on).
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

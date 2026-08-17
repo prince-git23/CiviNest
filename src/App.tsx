@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import PublicNavbar from './components/navigation/PublicNavbar';
 import WorkspaceHeader, { WorkspaceTabId } from './components/navigation/WorkspaceHeader';
 import HeroSection from './components/hero/HeroSection';
@@ -48,6 +49,7 @@ import { CivicSignalSubmission } from './services/signalAnalysisService';
 import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicClusterData } from './services/clusterService';
 import { DashboardSidebar, DashboardViewSection } from './components/dashboard/DashboardSidebar';
 import { NotificationProvider } from './context/NotificationContext';
+import { ResidentRouter } from './pages/resident/ResidentRouter';
 
 export type AppPageId =
   | 'platform'
@@ -444,7 +446,26 @@ export function App() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   return (
+    <BrowserRouter>
     <div className="min-h-screen bg-[#FBFBFA] text-[#111827] flex flex-col selection:bg-[#0F1E36] selection:text-white font-sans">
+      {/* Resident Portal Routes */}
+      <Routes>
+        <Route path="/resident/*" element={
+          <ResidentRouter
+            authenticatedUser={authenticatedUser || undefined}
+            onSignOut={() => {
+              setAuthenticatedUser(null);
+              setAuthToken(null);
+              localStorage.removeItem('civinest_token');
+              setCurrentPage('platform');
+            }}
+          />
+        } />
+      </Routes>
+
+      {/* Existing app content — only show when not on /resident routes */}
+      {!window.location.pathname.startsWith('/resident') && (
+      <>
       {/* 1. PUBLIC NAVIGATION CONTEXT (Only on Platform & How It Works) */}
       {isPublicContext && (
         <PublicNavbar
@@ -619,7 +640,6 @@ export function App() {
                     handleSelectPage('dashboard');
                   }}
                   onNavigateToMapExplorer={handleNavigateToMapExplorer}
-                  onOpenVerificationPage={handleOpenVerificationPage}
                   onUpdateReports={handleUpdateReports}
                   onShowToast={showToast}
                 />
@@ -854,7 +874,10 @@ export function App() {
           <span>{toastMessage}</span>
         </div>
       )}
+      </>
+      )}
     </div>
+    </BrowserRouter>
   );
 }
 

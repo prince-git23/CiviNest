@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, PlusCircle, ArrowLeft, Radio, CheckCircle2, ShieldCheck, Sparkles, Filter } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, PlusCircle, ArrowLeft, Radio, CheckCircle2, ShieldCheck, Sparkles, Filter, Loader2 } from 'lucide-react';
 import { DashboardDataset, DashboardReportItem } from '../types';
+import { getMyReports, ReportData } from '../services/api';
 import ReportsSummary from '../components/reports/ReportsSummary';
 import ReportFilters from '../components/reports/ReportFilters';
 import ReportCard from '../components/reports/ReportCard';
@@ -30,6 +31,45 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
   const [currentFilter, setCurrentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+
+  // Load reports from backend on mount
+  useEffect(() => {
+    const loadReports = async () => {
+      setIsLoadingReports(true);
+      try {
+        const result = await getMyReports({ limit: 50 });
+        // Convert backend report format to DashboardReportItem format
+        const converted: DashboardReportItem[] = result.reports.map((r: ReportData) => ({
+          id: r._id,
+          reportNumber: r.reportNumber,
+          title: r.title,
+          category: r.category as any,
+          reportedAgo: getTimeAgo(r.createdAt),
+          dateString: new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          status: r.status as any,
+          location: r.location.address,
+          description: r.description,
+          upvotes: r.upvotes,
+          timeline: r.timeline.map((t) => ({
+            status: t.status,
+            timestamp: t.timestamp,
+            note: t.note,
+            actor: t.actor,
+          })),
+        }));
+        if (converted.length > 0) {
+          setReports(converted);
+        }
+      } catch (error: any) {
+        // Silently fall back to mock data if backend is unavailable
+        console.log('Using local report data:', error.message);
+      } finally {
+        setIsLoadingReports(false);
+      }
+    };
+    loadReports();
+  }, []);
 
   // Modal State for "Still Not Fixed"
   const [reopenModalData, setReopenModalData] = useState<{
@@ -41,6 +81,18 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
     reportId: '',
     reportTitle: '',
   });
+
+  // Helper: time ago string
+  function getTimeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
 
   // Filter and Search Logic
   const filteredReports = useMemo(() => {

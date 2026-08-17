@@ -335,7 +335,7 @@ export const SignalAnalysisPage: React.FC<SignalAnalysisPageProps> = ({
               className="cursor-pointer"
               aria-label="CiviNest Home"
             >
-              <CiviNestLogo size="sm" />
+              <CiviNestLogo size={20} />
             </button>
           </div>
 

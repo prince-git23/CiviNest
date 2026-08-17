@@ -11,7 +11,8 @@ import {
 import { CivicMap } from './CivicMap';
 import { MapControls } from './MapControls';
 import { MapLegend } from './MapLegend';
-import type { MapViewport, MapLayer, CivicIssue, IssueCluster, SpatialMapNode } from '../../services/geo/geoTypes';
+import type { MapViewport, MapLayer, CivicIssue, IssueCluster } from '../../services/geo/geoTypes';
+import type { SpatialMapNode } from '../../types';
 import { DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
 import {
   getIssuesForViewport,

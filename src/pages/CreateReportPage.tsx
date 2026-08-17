@@ -28,6 +28,7 @@ import { LocationAdjustModal } from '../components/signal/LocationAdjustModal';
 import { SignalSuccessView } from '../components/signal/SignalSuccessView';
 import { CivicMap } from '../components/map/CivicMap';
 import type { MapViewport, GeoPoint } from '../services/geo/geoTypes';
+import { createReport } from '../services/api';
 import { getIssuesForViewport } from '../services/geo/mapDataService';
 import {
   analyzeCivicSignalText,
@@ -92,6 +93,7 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
   const [completedSubmission, setCompletedSubmission] = useState<CivicSignalSubmission | null>(null);
   const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [apiSubmitError, setApiSubmitError] = useState<string | null>(null);
 
   // ── Animation refs ──
   const stepContentRef = useRef<HTMLDivElement>(null);
@@ -190,32 +192,70 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
   // ── Submit ──
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
 
-    const submission: CivicSignalSubmission = {
-      id: `sig-${Date.now()}`,
-      reportNumber: `#CV-${Math.floor(1000 + Math.random() * 9000)}`,
-      description: description.trim(),
-      evidence: evidenceList.map((ev) => ({
-        id: ev.id,
-        url: ev.url,
-        name: ev.name,
-        type: ev.type,
-        size: ev.size,
-      })),
-      location,
-      analysis: extractedMetadata,
-      duplicateDecision,
-      mergedWithReportNumber:
-        duplicateDecision === 'merged' && duplicateMatch ? duplicateMatch.reportNumber : undefined,
-      timestamp:
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
-    };
+    try {
+      const result = await createReport({
+        title: extractedMetadata?.subcategory || description.trim().slice(0, 60),
+        description: description.trim(),
+        category: extractedMetadata?.category || 'general',
+        categoryLabel: extractedMetadata?.categoryLabel,
+        subcategory: extractedMetadata?.subcategory,
+        priority: extractedMetadata?.severity || 'medium',
+        location: {
+          address: location.address,
+          ward: location.ward,
+          city: location.city,
+          latitude: location.coordinates.lat,
+          longitude: location.coordinates.lng,
+          accuracy: location.accuracy,
+        },
+        evidence: evidenceList.map((ev) => ({
+          id: ev.id,
+          url: ev.url,
+          name: ev.name,
+          type: ev.type as 'image' | 'video',
+          size: ev.size,
+        })),
+        analysis: extractedMetadata ? {
+          category: extractedMetadata.category,
+          categoryLabel: extractedMetadata.categoryLabel,
+          subcategory: extractedMetadata.subcategory,
+          severity: extractedMetadata.severity,
+          confidence: extractedMetadata.confidence,
+          suggestedDepartment: extractedMetadata.suggestedDepartment,
+          keywords: extractedMetadata.keywords,
+        } : undefined,
+      });
 
-    setCompletedSubmission(submission);
-    setIsSubmitting(false);
-    setIsDraftDirty(false);
-    if (onSignalSubmitted) onSignalSubmitted(submission);
+      const submission: CivicSignalSubmission = {
+        id: result.report._id,
+        reportNumber: result.report.reportNumber,
+        description: description.trim(),
+        evidence: evidenceList.map((ev) => ({
+          id: ev.id,
+          url: ev.url,
+          name: ev.name,
+          type: ev.type,
+          size: ev.size,
+        })),
+        location,
+        analysis: extractedMetadata,
+        duplicateDecision,
+        mergedWithReportNumber:
+          duplicateDecision === 'merged' && duplicateMatch ? duplicateMatch.reportNumber : undefined,
+        timestamp:
+          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
+      };
+
+      setCompletedSubmission(submission);
+      setIsDraftDirty(false);
+      if (onSignalSubmitted) onSignalSubmitted(submission);
+    } catch (error: any) {
+      // Show error to user
+      setApiSubmitError(error.message || 'Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Success state ──
@@ -466,9 +506,9 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
                 </div>
 
                 {/* Location */}
-                <div className="bg-white border border-[#E5E7EB] rounded-3xl p-5 sm:p-6 shadow-xs">
-                  <LocationSelector
+                <div className="bg-white border border-[#E5E7EB] rounded-3xl p-5 sm:p-6 shadow-xs">                   <LocationSelector
                     location={location}
+                    onLocationUpdate={(newLoc) => setLocation(newLoc)}
                     onOpenAdjustModal={() => setIsLocationModalOpen(true)}
                   />
                 </div>
@@ -645,6 +685,12 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
               </div>
 
               {/* Submit */}
+              {apiSubmitError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 mb-3">
+                  {apiSubmitError}
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-2">
                 <button
                   type="button"

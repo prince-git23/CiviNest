@@ -103,7 +103,7 @@ export const CivicMap: React.FC<CivicMapProps> = ({
           zoom: viewport.zoom,
           pitch: viewport.pitch || 0,
           bearing: viewport.bearing || 0,
-          attributionControl: !compact,
+          attributionControl: compact ? false : { compact: true },
           interactive,
           maxZoom: 18,
           minZoom: 10,

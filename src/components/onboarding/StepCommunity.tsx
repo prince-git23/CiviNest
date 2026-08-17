@@ -142,7 +142,7 @@ export const StepCommunity: React.FC<StepCommunityProps> = ({
                           {soc.name}
                         </span>
                         {soc.isVerified && (
-                          <ShieldCheck className="w-3.5 h-3.5 text-[#2563EB] shrink-0" title="Verified RWA" />
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#2563EB] shrink-0" aria-label="Verified RWA" />
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#64748B]">
