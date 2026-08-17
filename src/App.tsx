@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import Navbar from './components/Navbar';
+import PublicNavbar from './components/navigation/PublicNavbar';
+import WorkspaceHeader, { WorkspaceTabId } from './components/navigation/WorkspaceHeader';
 import HeroSection from './components/hero/HeroSection';
 import NoiseToContextSection from './components/sections/NoiseToContextSection';
 import ProcessSection from './components/sections/ProcessSection';
@@ -17,14 +18,29 @@ import { SignalAnalysisPage } from './pages/SignalAnalysisPage';
 import { MyReportsPage } from './pages/MyReportsPage';
 import { ResolutionVerificationPage } from './pages/ResolutionVerificationPage';
 import { ClusterDetectionPage } from './pages/ClusterDetectionPage';
+import { MapExplorerPage } from './pages/MapExplorerPage';
 import { OnboardingFormData, UserRoleConfig, DashboardReportItem, ResolutionVerificationInfo } from './types';
 import { defaultDashboardData, buildDashboardFromOnboarding, DashboardDataset } from './data/dashboardData';
 import { CivicSignalSubmission } from './services/signalAnalysisService';
 import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicClusterData } from './services/clusterService';
 import { DashboardViewSection } from './components/dashboard/DashboardSidebar';
 
+export type AppPageId =
+  | 'platform'
+  | 'how-it-works'
+  | 'auth'
+  | 'onboarding'
+  | 'dashboard'
+  | 'create-signal'
+  | 'signal-analysis'
+  | 'my-reports'
+  | 'verification'
+  | 'cluster-detection'
+  | 'map-explorer';
+
 export function App() {
-  const [currentPage, setCurrentPage] = useState<'platform' | 'how-it-works' | 'auth' | 'onboarding' | 'dashboard' | 'create-signal' | 'signal-analysis' | 'my-reports' | 'verification' | 'cluster-detection'>('cluster-detection');
+  // CRITICAL REQUIREMENT: Application entry MUST be the public landing platform
+  const [currentPage, setCurrentPage] = useState<AppPageId>('platform');
   const [dashboardActiveSection, setDashboardActiveSection] = useState<DashboardViewSection>('overview');
   const [dashboardData, setDashboardData] = useState<DashboardDataset>(defaultDashboardData);
   const [currentSignalDraft, setCurrentSignalDraft] = useState<Partial<CivicSignalSubmission> | null>(null);
@@ -40,7 +56,7 @@ export function App() {
     }, 4500);
   };
 
-  const handleSelectPage = (page: 'platform' | 'how-it-works' | 'auth' | 'onboarding' | 'dashboard' | 'create-signal' | 'signal-analysis' | 'my-reports' | 'verification' | 'cluster-detection') => {
+  const handleSelectPage = (page: AppPageId) => {
     if (page === 'dashboard') {
       setDashboardActiveSection('overview');
     }
@@ -50,6 +66,29 @@ export function App() {
 
   const handleNavigateToReports = () => {
     setCurrentPage('my-reports');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToMapExplorer = () => {
+    setCurrentPage('map-explorer');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectWorkspaceTab = (tab: WorkspaceTabId) => {
+    if (tab === 'home') {
+      setDashboardActiveSection('overview');
+      setCurrentPage('dashboard');
+    } else if (tab === 'explore') {
+      setCurrentPage('map-explorer');
+    } else if (tab === 'reports') {
+      setCurrentPage('my-reports');
+    } else if (tab === 'community') {
+      setDashboardActiveSection('discussions');
+      setCurrentPage('dashboard');
+    } else if (tab === 'impact') {
+      setDashboardActiveSection('impact');
+      setCurrentPage('dashboard');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -94,9 +133,8 @@ export function App() {
     if (report) {
       setSelectedVerificationReport(report);
     } else {
-      // Pick first verification / resolved report or default
       const found = dashboardData.activeReports.find(
-        (r) => r.status === 'Verification' || r.status === 'Resolved'
+        (r) => r.status === 'Verification' || r.status === 'Resolved' || r.status === 'In Progress'
       );
       setSelectedVerificationReport(found || dashboardData.activeReports[0] || null);
     }
@@ -143,7 +181,7 @@ export function App() {
     }));
     setTimeout(() => {
       setCurrentPage('dashboard');
-    }, 900);
+    }, 800);
   };
 
   const handleOnboardingComplete = (data: OnboardingFormData) => {
@@ -230,27 +268,85 @@ export function App() {
     showToast(`Signal ingested & clustered: "${text.slice(0, 32)}..."`);
   };
 
+  // Determine current active workspace tab
+  const getActiveWorkspaceTab = (): WorkspaceTabId => {
+    if (currentPage === 'map-explorer') return 'explore';
+    if (currentPage === 'my-reports') return 'reports';
+    if (currentPage === 'dashboard') {
+      if (dashboardActiveSection === 'map') return 'explore';
+      if (dashboardActiveSection === 'filings') return 'reports';
+      if (dashboardActiveSection === 'discussions') return 'community';
+      if (dashboardActiveSection === 'impact') return 'impact';
+      return 'home';
+    }
+    return 'home';
+  };
+
+  const isPublicContext = currentPage === 'platform' || currentPage === 'how-it-works';
+  const isWorkspaceContext = currentPage === 'dashboard' || currentPage === 'my-reports' || currentPage === 'map-explorer';
+
   return (
     <div className="min-h-screen bg-[#FBFBFA] text-[#111827] flex flex-col selection:bg-[#0F1E36] selection:text-white font-sans">
-      {/* Top Fixed Navigation for Main Platform & How It Works pages */}
-      {currentPage !== 'auth' && currentPage !== 'onboarding' && currentPage !== 'dashboard' && currentPage !== 'create-signal' && currentPage !== 'signal-analysis' && (
-        <Navbar
-          currentPage={currentPage}
-          onSelectPage={handleSelectPage}
-          onOpenReportModal={() => setReportModalOpen(true)}
+      {/* 1. PUBLIC NAVIGATION CONTEXT (Only on Platform & How It Works) */}
+      {isPublicContext && (
+        <PublicNavbar
+          currentPage={currentPage === 'how-it-works' ? 'how-it-works' : 'platform'}
+          onNavigateLanding={() => {
+            setCurrentPage('platform');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onNavigateSection={handleNavigateSection}
+          onNavigateHowItWorks={() => {
+            setCurrentPage('how-it-works');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateSignIn={() => {
+            setCurrentPage('auth');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateGetStarted={() => {
+            setCurrentPage('onboarding');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         />
       )}
 
-      {/* Main Content View Switcher */}
-      {currentPage === 'cluster-detection' ? (
+      {/* 2. RESIDENT WORKSPACE NAVIGATION CONTEXT (Rendered on My Reports and Map Explorer; ResidentDashboard has internal header) */}
+      {(currentPage === 'my-reports' || currentPage === 'map-explorer') && (
+        <WorkspaceHeader
+          activeTab={getActiveWorkspaceTab()}
+          onSelectTab={handleSelectWorkspaceTab}
+          userName={dashboardData.user.name}
+          userWard={dashboardData.user.ward}
+          impactPoints={dashboardData.impact.points}
+          onOpenReportModal={() => setReportModalOpen(true)}
+          onNavigateToCreateSignal={() => setCurrentPage('create-signal')}
+          onNavigateLanding={() => {
+            setCurrentPage('platform');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSignOut={() => {
+            setCurrentPage('platform');
+            showToast('Signed out of resident workspace.');
+          }}
+        />
+      )}
+
+      {/* 3. MAIN PAGE CONTENT ROUTER */}
+      {currentPage === 'map-explorer' ? (
+        <MapExplorerPage
+          userContext={dashboardData.user}
+          onOpenReportModal={() => setReportModalOpen(true)}
+          onNavigate={(page) => handleSelectPage(page)}
+        />
+      ) : currentPage === 'cluster-detection' ? (
         <ClusterDetectionPage
           initialCluster={activeCluster}
           userData={dashboardData.user}
           onSelectTab={(tab) => {
             if (tab === 'reports') setCurrentPage('my-reports');
             else if (tab === 'home') setCurrentPage('dashboard');
-            else if (tab === 'explore') setCurrentPage('platform');
+            else if (tab === 'explore') setCurrentPage('map-explorer');
           }}
           onNavigateSection={(section) => {
             setDashboardActiveSection(section);
@@ -276,10 +372,7 @@ export function App() {
             setDashboardActiveSection('overview');
             setCurrentPage('dashboard');
           }}
-          onNavigateToMapExplorer={() => {
-            setDashboardActiveSection('spatial');
-            setCurrentPage('dashboard');
-          }}
+          onNavigateToMapExplorer={handleNavigateToMapExplorer}
           onVerificationCompleted={handleVerificationCompleted}
           onShowToast={showToast}
         />
@@ -291,10 +384,7 @@ export function App() {
             setDashboardActiveSection('overview');
             setCurrentPage('dashboard');
           }}
-          onNavigateToMapExplorer={() => {
-            setDashboardActiveSection('spatial');
-            setCurrentPage('dashboard');
-          }}
+          onNavigateToMapExplorer={handleNavigateToMapExplorer}
           onOpenVerificationPage={handleOpenVerificationPage}
           onUpdateReports={handleUpdateReports}
           onShowToast={showToast}
@@ -308,7 +398,7 @@ export function App() {
             setDashboardActiveSection('overview');
             setCurrentPage('dashboard');
           }}
-          onNavigateToExplore={() => setCurrentPage('platform')}
+          onNavigateToExplore={() => setCurrentPage('map-explorer')}
           onNavigateToReports={handleNavigateToReports}
           onNavigateToCommunity={() => {
             setDashboardActiveSection('discussions');
@@ -362,32 +452,32 @@ export function App() {
         />
       ) : (
         <main className="flex-1">
-          {/* 1. Hero Section with 3D Civic Network Canvas & Live Intelligence Telemetry */}
+          {/* Public Landing Hero Section */}
           <HeroSection
             onExplore={() => handleNavigateSection('intelligence')}
             onHowItWorks={() => handleSelectPage('how-it-works')}
             onOpenReportModal={() => setReportModalOpen(true)}
           />
 
-          {/* 2. Raw Signals to Verified Context Transformation Section */}
+          {/* Raw Signals to Verified Context Transformation */}
           <NoiseToContextSection />
 
-          {/* 3. Systematic 5-Step Process Section */}
+          {/* Systematic 5-Step Process */}
           <ProcessSection />
 
-          {/* 4. Spatial Intelligence & Ward Heatmap GIS Section */}
+          {/* Spatial Intelligence & Ward Heatmap GIS */}
           <SpatialIntelligenceSection />
 
-          {/* 5. Stakeholder Ecosystem (Citizen, Community, Government) */}
+          {/* Stakeholder Ecosystem */}
           <StakeholdersSection />
 
-          {/* 6. Human Oversight & Transparent Audit Trail Section */}
+          {/* Human Oversight & Transparent Audit Trail */}
           <TrustSection />
         </main>
       )}
 
-      {/* Footer (omitted on dedicated Create Signal, Dashboard, Auth & Onboarding views for focused immersion) */}
-      {currentPage !== 'auth' && currentPage !== 'onboarding' && currentPage !== 'dashboard' && currentPage !== 'create-signal' && (
+      {/* Footer (Only on Public pages: Platform and How It Works) */}
+      {isPublicContext && (
         <Footer
           onNavigateSection={handleNavigateSection}
           onOpenReportModal={() => setReportModalOpen(true)}
@@ -395,7 +485,7 @@ export function App() {
         />
       )}
 
-      {/* Live Citizen Signal Ingestion & Municipal Command Modal */}
+      {/* Live Citizen Signal Ingestion Modal */}
       <LiveReportSimulatorModal
         isOpen={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
@@ -414,4 +504,3 @@ export function App() {
 }
 
 export default App;
-

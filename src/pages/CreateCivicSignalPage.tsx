@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { gsap } from 'gsap';
-import { CiviNestLogo } from '../components/common/CiviNestLogo';
+import { WorkflowHeader } from '../components/navigation/WorkflowHeader';
 import { IssueComposer } from '../components/signal/IssueComposer';
 import { EvidenceUploader, EvidenceItem } from '../components/signal/EvidenceUploader';
 import { LocationSelector, LocationData } from '../components/signal/LocationSelector';
@@ -280,41 +280,26 @@ export const CreateCivicSignalPage: React.FC<CreateCivicSignalPageProps> = ({
 
   return (
     <div className="min-h-screen bg-[#FBFBFA] text-[#111827] flex flex-col font-sans selection:bg-[#0F1E36] selection:text-white pb-20 md:pb-8">
-      {/* 1. CiviNest Header matching reference */}
-      <header className="sticky top-0 z-40 bg-[#FBFBFA]/90 backdrop-blur-md border-b border-[#E5E7EB] py-3.5 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {onBackToDashboard && (
-              <button
-                type="button"
-                onClick={onBackToDashboard}
-                className="p-1.5 rounded-lg hover:bg-gray-200 text-[#4B5563] hover:text-[#111827] transition-colors cursor-pointer mr-1"
-                title="Return to Dashboard"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <CiviNestLogo />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={onNavigateToAuth || onBackToDashboard}
-              className="text-xs sm:text-sm font-semibold tracking-wider text-[#0F1E36] hover:text-blue-600 uppercase transition-colors cursor-pointer"
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={onBackToDashboard || onNavigateToPlatform}
-              className="p-2 rounded-lg text-[#111827] hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Contextual Workflow Navigation Header */}
+      <WorkflowHeader
+        backLabel="Dashboard"
+        onBack={onBackToDashboard || onNavigateToPlatform || (() => {})}
+        onNavigateHome={onNavigateToPlatform || onBackToDashboard}
+        breadcrumbs={[
+          { label: 'Resident Workspace', onClick: onBackToDashboard },
+          { label: 'File Civic Signal', badge: 'Draft Ingestion', badgeColor: 'blue' },
+        ]}
+        stepIndicator="Step 1: Signal Ingestion"
+        rightActions={
+          <button
+            type="button"
+            onClick={onNavigateToAuth || onBackToDashboard}
+            className="text-xs font-semibold text-[#0F1E36] hover:text-blue-600 uppercase tracking-wider py-1 px-2 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Sign In
+          </button>
+        }
+      />
 
       {/* Main Signal Ingestion View */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

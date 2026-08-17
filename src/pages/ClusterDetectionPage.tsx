@@ -32,7 +32,7 @@ import {
   confirmClusterParticipation,
 } from '../services/clusterService';
 import CivicClusterScene from '../components/reports/CivicClusterScene';
-import { CiviNestLogo } from '../components/common/CiviNestLogo';
+import { WorkflowHeader } from '../components/navigation/WorkflowHeader';
 import { DashboardViewSection } from '../components/dashboard/DashboardSidebar';
 
 export interface ClusterDetectionPageProps {
@@ -104,9 +104,33 @@ export const ClusterDetectionPage: React.FC<ClusterDetectionPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-24 pt-24 sm:pt-28">
+    <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-24">
+      {/* Contextual Workflow Navigation Header */}
+      <WorkflowHeader
+        backLabel="Dashboard"
+        onBack={onBackToDashboard || onNavigateToPlatform || (() => {})}
+        onNavigateHome={onNavigateToPlatform || onBackToDashboard}
+        breadcrumbs={[
+          { label: 'Spatial Intelligence', onClick: onBackToDashboard },
+          { label: `Cluster ${activeCluster.clusterCode}`, badge: `${activeCluster.aiConfidence}% AI Confidence`, badgeColor: 'blue' },
+        ]}
+        stepIndicator="Civic Cluster Correlation"
+        rightActions={
+          onNavigateToCreateSignal && (
+            <button
+              type="button"
+              onClick={onNavigateToCreateSignal}
+              className="inline-flex items-center gap-1 text-xs font-semibold bg-[#0F1E36] hover:bg-[#1E293B] text-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>File Signal</span>
+            </button>
+          )
+        }
+      />
+
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 text-left">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6 sm:space-y-8 text-left">
         {/* Breadcrumb & Live Cluster Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
           <div>

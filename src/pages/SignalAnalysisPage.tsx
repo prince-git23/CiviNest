@@ -248,7 +248,7 @@ export const SignalAnalysisPage: React.FC<SignalAnalysisPageProps> = ({
             className="px-2 pt-1 block text-left cursor-pointer"
             aria-label="CiviNest Home"
           >
-            <CiviNestLogo size="md" />
+            <CiviNestLogo size={28} />
           </button>
 
           {/* Navigation Links */}

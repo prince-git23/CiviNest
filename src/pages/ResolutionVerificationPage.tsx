@@ -22,7 +22,7 @@ import {
   DashboardReportItem,
   ResolutionVerificationInfo,
 } from '../types';
-import { CiviNestLogo } from '../components/common/CiviNestLogo';
+import { WorkflowHeader } from '../components/navigation/WorkflowHeader';
 import StillNotFixedModal from '../components/reports/StillNotFixedModal';
 
 export interface ResolutionVerificationPageProps {
@@ -116,9 +116,21 @@ export const ResolutionVerificationPage: React.FC<ResolutionVerificationPageProp
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-24 pt-24 sm:pt-28">
+    <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-24">
+      {/* Contextual Workflow Navigation */}
+      <WorkflowHeader
+        backLabel="My Reports"
+        onBack={onNavigateBack}
+        onNavigateHome={onNavigateToDashboard}
+        breadcrumbs={[
+          { label: 'My Filings', onClick: onNavigateBack },
+          { label: `Report #${activeReport.reportNumber}`, badge: 'Resolution Audit', badgeColor: 'emerald' },
+        ]}
+        stepIndicator="Ground Truth Verification"
+      />
+
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 text-left">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6 sm:space-y-8 text-left">
         {/* Title & Audit Banner */}
         <div className="border-b border-[#E2E8F0] pb-6">
           <div className="flex items-center gap-2 mb-2.5 flex-wrap">

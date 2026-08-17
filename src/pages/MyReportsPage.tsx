@@ -174,7 +174,7 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-20 pt-24 sm:pt-28">
+    <div className="min-h-screen bg-[#FBFBFA] text-[#0F172A] pb-20 pt-6 sm:pt-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Top Header & New Filing CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6 text-left">
