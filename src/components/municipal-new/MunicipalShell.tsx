@@ -8,7 +8,6 @@ import {
   Sparkles,
   Users,
   Search,
-  Bell,
   HelpCircle,
   X,
   Menu,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { CiviNestLogo } from '../common/CiviNestLogo';
 import { ProfileDropdown } from '../common/ProfileDropdown';
+import { NotificationBell } from './NotificationBell';
 import type { AuthenticatedUser } from '../../types';
 
 export type MunicipalPage =
@@ -25,7 +25,8 @@ export type MunicipalPage =
   | 'departments'
   | 'resolution-verification'
   | 'ai-briefs-analytics'
-  | 'teams-ward-mgmt';
+  | 'teams-ward-mgmt'
+  | 'notifications';
 
 interface MunicipalShellProps {
   activePage: MunicipalPage;
@@ -140,11 +141,8 @@ export const MunicipalShell: React.FC<MunicipalShellProps> = ({
                 />
               </div>
 
-              {/* Notification Bell */}
-              <button className="relative p-2 rounded-lg text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] transition-colors">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              {/* Notification Bell — opens the shared notification panel */}
+              <NotificationBell onNavigate={onSelectPage} />
 
               {/* AI Assistant */}
               <button className="p-2 rounded-lg text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] transition-colors">
@@ -157,7 +155,7 @@ export const MunicipalShell: React.FC<MunicipalShellProps> = ({
                   user={authenticatedUser}
                   onNavigateToMunicipal={() => onSelectPage('command-center')}
                   onNavigateToMyFilings={() => onSelectPage('issue-triage')}
-                  onNavigateToPublicPlatform={onSwitchToCitizenView}
+                  onNavigateToNotifications={() => onSelectPage('notifications')}
                   onSignOut={onSwitchToCitizenView}
                 />
               ) : (

@@ -21,6 +21,7 @@ import { ResolutionVerificationPage } from './pages/ResolutionVerificationPage';
 import { ClusterDetectionPage } from './pages/ClusterDetectionPage';
 import { MapExplorerPage } from './pages/MapExplorerPage';
 import { MunicipalPortal } from './pages/municipal/MunicipalPortal';
+import { NotificationProvider } from './context/NotificationContext';
 import { DiscussionsPage } from './pages/DiscussionsPage';
 import { ImpactScorePage } from './pages/ImpactScorePage';
 import { ProfileOptimizationPage } from './pages/ProfileOptimizationPage';
@@ -621,13 +622,15 @@ export function App() {
             }}
           />
         ) : currentPage === 'municipal' ? (
-          <MunicipalPortal
-            onSwitchToCitizenView={() => {
-              setAuthenticatedUser(null);
-              handleSelectPage('dashboard');
-            }}
-            authenticatedUser={authenticatedUser || undefined}
-          />
+          <NotificationProvider key={authenticatedUser?.id || 'municipal-guest'}>
+            <MunicipalPortal
+              onSwitchToCitizenView={() => {
+                setAuthenticatedUser(null);
+                handleSelectPage('dashboard');
+              }}
+              authenticatedUser={authenticatedUser || undefined}
+            />
+          </NotificationProvider>
         ) : currentPage === 'create-account' ? (
           <CreateAccountPage
             onBackToLanding={() => handleSelectPage('platform')}

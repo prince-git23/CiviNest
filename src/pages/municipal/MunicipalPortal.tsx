@@ -7,6 +7,7 @@ import { DepartmentOperations } from './DepartmentOperations';
 import { ResolutionVerification } from './ResolutionVerification';
 import { AIBriefsAnalytics } from './AIBriefsAnalytics';
 import { TeamsWardManagement } from './TeamsWardManagement';
+import { NotificationsCenter } from './NotificationsCenter';
 import type { AuthenticatedUser } from '../../types';
 
 interface MunicipalPortalProps {
@@ -38,6 +39,8 @@ export const MunicipalPortal: React.FC<MunicipalPortalProps> = ({ onSwitchToCiti
         return <AIBriefsAnalytics />;
       case 'teams-ward-mgmt':
         return <TeamsWardManagement />;
+      case 'notifications':
+        return <NotificationsCenter onNavigate={handleSelectPage} />;
       default:
         return <CommandCenter onSelectPage={(p) => setActivePage(p as MunicipalPage)} />;
     }

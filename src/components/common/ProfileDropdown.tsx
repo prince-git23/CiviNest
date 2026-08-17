@@ -6,7 +6,6 @@ import {
   Plus,
   Users,
   Shield,
-  ExternalLink,
   LogOut,
   Building2,
   Bell,
@@ -29,7 +28,7 @@ interface ProfileDropdownProps {
   onNavigateToMyFilings?: () => void;
   onNavigateToCreateSignal?: () => void;
   onNavigateToImpact?: () => void;
-  onNavigateToPublicPlatform?: () => void;
+  onNavigateToNotifications?: () => void;
   onSignOut?: () => void;
 }
 
@@ -42,7 +41,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   onNavigateToMyFilings,
   onNavigateToCreateSignal,
   onNavigateToImpact,
-  onNavigateToPublicPlatform,
+  onNavigateToNotifications,
   onSignOut,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -200,11 +199,11 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                     onClick={() => { close(); onNavigateToMunicipal(); }}
                   />
                 )}
-                {onNavigateToPublicPlatform && user.currentPortal !== 'residential' && (
+                {onNavigateToNotifications && (
                   <DropdownItem
                     icon={<Bell className="w-3.5 h-3.5 text-slate-400" />}
                     label="Notifications"
-                    onClick={() => { close(); }}
+                    onClick={() => { close(); onNavigateToNotifications(); }}
                   />
                 )}
               </>
@@ -252,13 +251,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 
           {/* Footer Actions — same for all roles */}
           <div className="border-t border-[#F3F4F6] pt-1">
-            {onNavigateToPublicPlatform && user.currentPortal !== 'residential' && (
-              <DropdownItem
-                icon={<ExternalLink className="w-3.5 h-3.5 text-slate-400" />}
-                label="Switch to Public Platform"
-                onClick={() => { close(); onNavigateToPublicPlatform(); }}
-              />
-            )}
             {onSignOut && (
               <DropdownItem
                 icon={<LogOut className="w-3.5 h-3.5 text-red-500" />}
