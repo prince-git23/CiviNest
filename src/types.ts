@@ -261,6 +261,15 @@ export interface DashboardAIInsight {
   affectedSector: string;
   actionCta?: string;
   relatedReportCount?: number;
+  /** Backend cluster this insight refers to — used to focus the map explorer */
+  clusterId?: string;
+  priority?: { score: number; level: string };
+  location?: {
+    latitude: number;
+    longitude: number;
+    ward: string;
+    locality: string;
+  };
 }
 
 export interface DashboardImpactScore {
@@ -562,6 +571,8 @@ export type MunicipalNotificationType =
   | 'ISSUE_UPDATED'
   | 'RESIDENT_CONFIRMATION'
   | 'COMMUNITY_ESCALATION'
+  | 'RESOLUTION_SUBMITTED'
+  | 'ISSUE_REOPENED'
   | 'SYSTEM';
 
 export type MunicipalNotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

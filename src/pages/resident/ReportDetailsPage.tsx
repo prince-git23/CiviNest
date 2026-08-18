@@ -14,7 +14,8 @@ import {
   Shield,
   ExternalLink,
 } from 'lucide-react';
-import { getReportById, ReportData } from '../../services/api';
+import { getReportById, getIssueById, ReportData, CivicIssueDetail } from '../../services/api';
+import { CivicMap } from '../../components/map/CivicMap';
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   'Under Review': { color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', label: 'Under Review' },
@@ -49,6 +50,9 @@ export const ReportDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [report, setReport] = useState<ReportData | null>(null);
+  // A civic issue belonging to another resident is shown through the public
+  // issue view (GET /api/resident/issues/:id) — never the owner's private data.
+  const [publicIssue, setPublicIssue] = useState<CivicIssueDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,9 +60,21 @@ export const ReportDetailsPage: React.FC = () => {
     if (!id) return;
     setIsLoading(true);
     setError(null);
+    setReport(null);
+    setPublicIssue(null);
     getReportById(id)
       .then((result) => setReport(result.report))
-      .catch((err) => setError(err.message || 'Failed to load report'))
+      .catch((err) => {
+        // Not the resident's own filing — fall back to the sanitized public
+        // issue view so linked discussions / community cards still resolve.
+        if (err && (err.status === 404 || err.status === 403)) {
+          getIssueById(id)
+            .then(({ issue }) => setPublicIssue(issue))
+            .catch(() => setError(err.message || 'Failed to load report'));
+        } else {
+          setError(err.message || 'Failed to load report');
+        }
+      })
       .finally(() => setIsLoading(false));
   }, [id]);
 
@@ -71,7 +87,7 @@ export const ReportDetailsPage: React.FC = () => {
     );
   }
 
-  if (error || !report) {
+  if (error || (!report && !publicIssue)) {
     return (
       <div className="text-center py-20">
         <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
@@ -81,6 +97,124 @@ export const ReportDetailsPage: React.FC = () => {
           className="px-4 py-2 bg-[#0F1E36] text-white text-sm font-semibold rounded-lg hover:bg-[#1E293B] transition-colors cursor-pointer"
         >
           Back to Reports
+        </button>
+      </div>
+    );
+  }
+
+  // ── Public civic issue view (issue belongs to another resident) ──
+  if (publicIssue && !report) {
+    const hasCoords =
+      typeof publicIssue.latitude === 'number' && typeof publicIssue.longitude === 'number';
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B7280] hover:text-[#111827] transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
+
+        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-mono font-semibold text-[#6B7280]">
+                  {publicIssue.reportNumber}
+                </span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  Community Civic Issue
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-[#0F1E36] tracking-tight">
+                {publicIssue.title}
+              </h1>
+            </div>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200 shrink-0">
+              {publicIssue.status}
+            </span>
+          </div>
+
+          <p className="text-xs text-[#6B7280] mb-4">
+            This civic issue was reported in your community. It is not one of your
+            private filings — this is the sanitized public view.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="bg-[#F9FAFB] rounded-xl p-3">
+              <p className="text-[10px] text-[#6B7280] mb-0.5">Category</p>
+              <p className="text-sm font-semibold text-[#111827] capitalize">{(publicIssue.category || 'civic').replace(/_/g, ' ')}</p>
+            </div>
+            <div className="bg-[#F9FAFB] rounded-xl p-3">
+              <p className="text-[10px] text-[#6B7280] mb-0.5">Priority</p>
+              <p className="text-sm font-semibold text-[#111827] capitalize">{String(publicIssue.priority || '—')}</p>
+            </div>
+            <div className="bg-[#F9FAFB] rounded-xl p-3">
+              <p className="text-[10px] text-[#6B7280] mb-0.5">AI Confidence</p>
+              <p className="text-sm font-semibold text-[#111827]">
+                {typeof publicIssue.confidence === 'number' ? Math.round(publicIssue.confidence * 100) + '%' : '—'}
+              </p>
+            </div>
+            <div className="bg-[#F9FAFB] rounded-xl p-3">
+              <p className="text-[10px] text-[#6B7280] mb-0.5">Reported</p>
+              <p className="text-sm font-semibold text-[#111827]">
+                {publicIssue.createdAt ? new Date(publicIssue.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#111827]">
+                {publicIssue.ward || 'Ward unavailable'}
+                {publicIssue.locality ? ` · ${publicIssue.locality}` : ''}
+              </p>
+              {hasCoords && (
+                <p className="text-xs text-[#6B7280] font-mono">
+                  {publicIssue.latitude!.toFixed(4)}°N, {publicIssue.longitude!.toFixed(4)}°E
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {hasCoords && (
+          <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
+            <h3 className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-3">
+              Issue Location
+            </h3>
+            <div className="rounded-xl overflow-hidden border border-[#E5E7EB]">
+              <CivicMap
+                viewport={{ latitude: publicIssue.latitude!, longitude: publicIssue.longitude!, zoom: 14 }}
+                issues={[{
+                  id: publicIssue.id,
+                  title: publicIssue.title,
+                  category: (publicIssue.category || 'other') as any,
+                  priority: typeof publicIssue.priority === 'number' ? publicIssue.priority : 50,
+                  confidence: publicIssue.confidence ?? 0.8,
+                  reportCount: 1,
+                  confirmationCount: 0,
+                  status: publicIssue.status as any,
+                  latitude: publicIssue.latitude!,
+                  longitude: publicIssue.longitude!,
+                }]}
+                className="w-full"
+                style={{ height: 240 }}
+                compact={true}
+              />
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={() => navigate(`/resident/explore?lat=${publicIssue.latitude || 21.1458}&lng=${publicIssue.longitude || 79.0882}`)}
+          className="w-full px-4 py-3 bg-[#0F1E36] text-white text-sm font-semibold rounded-xl hover:bg-[#1E293B] transition-colors cursor-pointer"
+        >
+          View on Civic Map
         </button>
       </div>
     );

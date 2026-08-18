@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface ICivicCluster extends Document {
   clusterCode: string;
   title: string;
+  description?: string;
   category: string;
   subcategory: string;
   severity: string;
@@ -32,6 +33,7 @@ const civicClusterSchema = new Schema<ICivicCluster>(
   {
     clusterCode: { type: String, required: true, unique: true },
     title: { type: String, required: true },
+    description: { type: String, default: '' },
     category: { type: String, required: true },
     subcategory: { type: String, default: '' },
     severity: { type: String, default: 'UNKNOWN' },

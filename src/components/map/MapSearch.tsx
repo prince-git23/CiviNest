@@ -1,13 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, MapPin } from 'lucide-react';
+import { Search, X, MapPin, Loader2, AlertCircle } from 'lucide-react';
 import type { GeoPoint } from '../../services/geo/geoTypes';
+import { searchPlaces, PlaceSearchResult } from '../../services/geo/geocodingService';
 
-interface SearchResult {
-  name: string;
-  address: string;
-  point: GeoPoint;
-  type: 'locality' | 'ward' | 'landmark' | 'address';
-}
+type SearchResult = PlaceSearchResult;
 
 interface MapSearchProps {
   onSelectLocation?: (point: GeoPoint, name: string) => void;
@@ -15,7 +11,8 @@ interface MapSearchProps {
   className?: string;
 }
 
-// Demo search results for Nagpur
+// Fallback demo results used only when the geocoder is unreachable (offline /
+// blocked network). Real searches go through the Photon geocoding API.
 const demoSearchResults: SearchResult[] = [
   { name: 'Dharampeth', address: 'Dharampeth, Nagpur', point: { latitude: 21.1458, longitude: 79.0882 }, type: 'locality' },
   { name: 'Ward 14', address: 'Ward 14, Dharampeth, Nagpur', point: { latitude: 21.1462, longitude: 79.0874 }, type: 'ward' },
@@ -37,21 +34,59 @@ export const MapSearch: React.FC<MapSearchProps> = ({
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    const q = query.trim();
+    if (q.length < 2) {
       setResults([]);
+      setSearching(false);
+      setUsingFallback(false);
       return;
     }
-    const q = query.toLowerCase();
-    const filtered = demoSearchResults.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.address.toLowerCase().includes(q)
-    );
-    setResults(filtered);
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setUsingFallback(false);
+      try {
+        const found = await searchPlaces(q, controller.signal);
+        if (controller.signal.aborted) return;
+        if (found.length > 0) {
+          setResults(found);
+        } else {
+          // No geocoder hits — fall back to the local reference list
+          const lower = q.toLowerCase();
+          setResults(
+            demoSearchResults.filter(
+              (r) => r.name.toLowerCase().includes(lower) || r.address.toLowerCase().includes(lower)
+            )
+          );
+          setUsingFallback(true);
+        }
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        // Geocoder unreachable — use the local reference list so search
+        // still works offline.
+        const lower = q.toLowerCase();
+        setResults(
+          demoSearchResults.filter(
+            (r) => r.name.toLowerCase().includes(lower) || r.address.toLowerCase().includes(lower)
+          )
+        );
+        setUsingFallback(true);
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   useEffect(() => {
@@ -77,6 +112,8 @@ export const MapSearch: React.FC<MapSearchProps> = ({
     address: '📌',
   };
 
+  const showResults = isOpen && query.trim().length >= 2;
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
@@ -93,35 +130,55 @@ export const MapSearch: React.FC<MapSearchProps> = ({
           placeholder={placeholder}
           className="w-full pl-9 pr-8 py-2.5 text-sm bg-white border border-[#E5E7EB] rounded-xl text-[#111827] placeholder-[#9CA3AF] outline-none focus:border-[#94A3B8] focus:ring-2 focus:ring-[#0F1E36]/10 transition-all"
         />
-        {query && (
+        {query ? (
           <button
             onClick={() => {
               setQuery('');
               setResults([]);
               inputRef.current?.focus();
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
-        )}
+        ) : null}
       </div>
 
-      {isOpen && results.length > 0 && (
-        <div className="absolute top-full mt-1 w-full bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
-          {results.map((result, i) => (
-            <button
-              key={i}
-              onClick={() => handleSelect(result)}
-              className="w-full px-3 py-2.5 text-left hover:bg-[#F9FAFB] flex items-center gap-3 transition-colors border-b border-[#F3F4F6] last:border-0"
-            >
-              <span className="text-sm">{typeIcons[result.type]}</span>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[#111827] truncate">{result.name}</p>
-                <p className="text-[11px] text-[#6B7280] truncate">{result.address}</p>
-              </div>
-            </button>
-          ))}
+      {showResults && (
+        <div className="absolute top-full mt-1 w-full bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-50 max-h-72 overflow-y-auto">
+          {searching ? (
+            <div className="px-4 py-4 flex items-center justify-center gap-2 text-xs text-[#6B7280]">
+              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+              Searching places...
+            </div>
+          ) : results.length > 0 ? (
+            <>
+              {usingFallback && (
+                <div className="px-3 py-2 flex items-start gap-1.5 text-[10.5px] text-amber-700 bg-amber-50 border-b border-amber-100">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>Online geocoder unreachable — showing nearby reference places.</span>
+                </div>
+              )}
+              {results.map((result, i) => (
+                <button
+                  key={`${result.name}-${i}`}
+                  onClick={() => handleSelect(result)}
+                  className="w-full px-3 py-2.5 text-left hover:bg-[#F9FAFB] flex items-center gap-3 transition-colors border-b border-[#F3F4F6] last:border-0 cursor-pointer"
+                >
+                  <span className="text-sm">{typeIcons[result.type]}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[#111827] truncate">{result.name}</p>
+                    <p className="text-[11px] text-[#6B7280] truncate">{result.address}</p>
+                  </div>
+                  <MapPin className="w-3.5 h-3.5 text-[#2563EB] shrink-0 ml-auto" />
+                </button>
+              ))}
+            </>
+          ) : (
+            <div className="px-4 py-4 text-center text-xs text-[#6B7280]">
+              No places found for “{query}”.
+            </div>
+          )}
         </div>
       )}
     </div>

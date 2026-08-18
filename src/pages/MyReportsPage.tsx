@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, PlusCircle, ArrowLeft, Radio, CheckCircle2, ShieldCheck, Sparkles, Filter, Loader2 } from 'lucide-react';
 import { DashboardDataset, DashboardReportItem } from '../types';
 import { getMyReports, ReportData } from '../services/api';
@@ -33,6 +34,7 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
   const [currentFilter, setCurrentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const navigate = useNavigate();
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [reportIssues, setReportIssues] = useState<CivicIssue[]>([]);
 
@@ -306,6 +308,7 @@ export const MyReportsPage: React.FC<MyReportsPageProps> = ({
                   onViewCluster={(clusterId) => {
                     if (onNavigateToMapExplorer) onNavigateToMapExplorer();
                   }}
+                  onInspectDetails={(r) => navigate(`/resident/reports/${r.id}`)}
                 />
               ))
             ) : (

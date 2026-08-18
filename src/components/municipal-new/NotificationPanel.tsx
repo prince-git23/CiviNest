@@ -9,6 +9,8 @@ import {
   UserCheck,
   Users,
   Database,
+  CheckCircle2,
+  RotateCcw,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
@@ -45,6 +47,8 @@ const TYPE_ICONS: Record<MunicipalNotificationType, LucideIcon> = {
   ISSUE_UPDATED: RefreshCw,
   RESIDENT_CONFIRMATION: UserCheck,
   COMMUNITY_ESCALATION: Users,
+  RESOLUTION_SUBMITTED: CheckCircle2,
+  ISSUE_REOPENED: RotateCcw,
   SYSTEM: Database,
 };
 
@@ -208,7 +212,7 @@ interface NotificationRowProps {
 }
 
 const NotificationRow: React.FC<NotificationRowProps> = ({ notification: n, onOpen }) => {
-  const Icon = TYPE_ICONS[n.type];
+  const Icon = TYPE_ICONS[n.type] || Database;
   const priority = NOTIFICATION_PRIORITY_META[n.priority];
 
   return (

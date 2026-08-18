@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   Plus,
@@ -43,7 +43,22 @@ export const ResidentShell: React.FC<ResidentShellProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Host for the `civinest:toast` custom event used across resident pages
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent).detail;
+      if (typeof msg !== 'string') return;
+      setToast(msg);
+      setTimeout(() => setToast(null), 4000);
+    };
+    window.addEventListener('civinest:toast', handler);
+    return () => window.removeEventListener('civinest:toast', handler);
+  }, []);
 
   const userName = authenticatedUser?.name || 'Resident';
   const userWard = authenticatedUser?.ward || 'Ward 14';
@@ -73,17 +88,68 @@ export const ResidentShell: React.FC<ResidentShellProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Search */}
-          <button className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs text-[#6B7280] hover:bg-[#F3F4F6] transition-colors cursor-pointer">
+          {/* Search — opens the spatial map with its search bar */}
+          <button
+            onClick={() => navigate('/resident/explore')}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs text-[#6B7280] hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+          >
             <Search className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Search</span>
           </button>
 
           {/* Notifications */}
-          <button className="relative p-2 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] cursor-pointer">
-            <Bell className="w-4.5 h-4.5" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setNotifOpen(!notifOpen)}
+              className="relative p-2 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] cursor-pointer"
+            >
+              <Bell className="w-4.5 h-4.5" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+            </button>
+
+            {notifOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-[#E5E7EB] shadow-lg z-50 py-3 text-left">
+                  <div className="px-4 pb-2 border-b border-[#F3F4F6]">
+                    <p className="text-xs font-semibold text-[#111827]">Notifications</p>
+                  </div>
+                  <div className="divide-y divide-[#F3F4F6]">
+                    <button
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate('/resident/reports');
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-[#F9FAFB] transition-colors"
+                    >
+                      <p className="text-xs font-semibold text-[#111827]">Report status updated</p>
+                      <p className="text-[11.5px] text-[#4B5563] mt-0.5">A report in your ward moved to Verification. Check My Reports to verify the resolution.</p>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate('/resident/insights');
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-[#F9FAFB] transition-colors"
+                    >
+                      <p className="text-xs font-semibold text-[#111827]">New AI insight in your area</p>
+                      <p className="text-[11.5px] text-[#4B5563] mt-0.5">Emerging trend detected in Ward 14. Open Insights to explore.</p>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate('/resident/ward-metrics');
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-[#F9FAFB] transition-colors"
+                    >
+                      <p className="text-xs font-semibold text-[#111827]">Ward metrics updated</p>
+                      <p className="text-[11.5px] text-[#4B5563] mt-0.5">Sensor telemetry refreshed for {userWard}. View full metrics.</p>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Profile dropdown */}
           <div className="relative">
@@ -232,6 +298,14 @@ export const ResidentShell: React.FC<ResidentShellProps> = ({
           <Outlet />
         </main>
       </div>
+
+      {/* Toast host for resident pages */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[60] bg-[#0F1E36] text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border border-slate-700 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <span>{toast}</span>
+        </div>
+      )}
     </div>
   );
 };

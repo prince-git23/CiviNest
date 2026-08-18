@@ -37,20 +37,16 @@ interface SearchEntry {
   section: RepresentativeSection;
 }
 
+// Quick-navigation entries. Issue/category/location lookups are handled by the
+// Community Issues page's real search; this modal only offers portal sections
+// so no fabricated issue data ever appears in the shell.
 const SEARCH_ENTRIES: SearchEntry[] = [
-  { tag: 'Issue', text: 'Street Lighting Failure (CIV-2026-014)', section: 'issues' },
-  { tag: 'Issue', text: 'Drainage Overflow (CIV-2026-019)', section: 'issues' },
-  { tag: 'Issue', text: 'Road Damage (CIV-2026-023)', section: 'issues' },
-  { tag: 'Issue', text: 'Water Pressure Drop (CIV-2026-028)', section: 'issues' },
-  { tag: 'Issue', text: 'Waste Collection Delay (CIV-2026-031)', section: 'issues' },
-  { tag: 'Category', text: 'Infrastructure issues', section: 'issues' },
-  { tag: 'Category', text: 'Sanitation issues', section: 'issues' },
-  { tag: 'Location', text: 'Sector 14 — Elm Street', section: 'issues' },
-  { tag: 'Location', text: 'West Access Road', section: 'issues' },
-  { tag: 'Members', text: 'Community Members List', section: 'members' },
   { tag: 'Navigation', text: 'Community Dashboard', section: 'dashboard' },
+  { tag: 'Navigation', text: 'Community Issues', section: 'issues' },
   { tag: 'Navigation', text: 'Issue Aggregation Workspace', section: 'aggregation' },
+  { tag: 'Navigation', text: 'Community Members', section: 'members' },
   { tag: 'Navigation', text: 'Community Analytics Dashboard', section: 'analytics' },
+  { tag: 'Navigation', text: 'Profile', section: 'profile' },
   { tag: 'Navigation', text: 'Settings', section: 'settings' },
   { tag: 'Navigation', text: 'Support Center', section: 'support' },
   { tag: 'Navigation', text: 'All Notifications', section: 'notifications' },

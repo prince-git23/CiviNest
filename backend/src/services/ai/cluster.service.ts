@@ -1,6 +1,6 @@
 import { CivicCluster, ICivicCluster } from '../../models/CivicCluster.js';
 import { CivicSignal, ICivicSignal } from '../../models/CivicSignal.js';
-import { Report } from '../../models/Report.js';
+import { Report, locationPointFrom } from '../../models/Report.js';
 import { Discussion } from '../../models/Discussion.js';
 
 export interface ClusterMatchResult {
@@ -160,6 +160,10 @@ export async function createIssueFromSignal(
       latitude: input.location?.latitude ?? 21.1458,
       longitude: input.location?.longitude ?? 79.0882,
     },
+    locationPoint: locationPointFrom({
+      latitude: input.location?.latitude ?? 21.1458,
+      longitude: input.location?.longitude ?? 79.0882,
+    }),
     analysis: {
       category: input.category,
       severity: input.severity,
@@ -170,7 +174,7 @@ export async function createIssueFromSignal(
     timeline: [
       {
         status: 'Report Lodged',
-        timestamp: new Date().toLocaleString(),
+        timestamp: new Date().toISOString(),
         note: 'Citizen signal ingested and clustered into a civic issue.',
         actor: 'Resident',
       },

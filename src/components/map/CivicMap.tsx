@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type {
   MapViewport,
   MapFilter,
@@ -14,11 +15,16 @@ import type {
 } from '../../services/geo/geoTypes';
 import { CATEGORY_COLORS, PRIORITY_COLORS, DEFAULT_VIEWPORT } from '../../services/geo/geoTypes';
 
-// CARTO Voyager — a colorful street map (Google-Maps-like) that works with no API key.
-// Override with VITE_MAP_STYLE_URL to use any MapLibre-compatible style (e.g. MapTiler).
-const MAP_STYLE =
-  (import.meta.env.VITE_MAP_STYLE_URL as string | undefined) ||
-  'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+// Real geographic basemaps that work without an API key:
+// 1. VITE_MAP_STYLE_URL — project override (e.g. MapTiler with a key)
+// 2. OpenFreeMap Liberty — free OSM-based street map with roads/buildings
+// 3. CARTO Voyager — keyless fallback
+// The map falls back to the next provider automatically if a style fails.
+const MAP_STYLES: string[] = [
+  (import.meta.env.VITE_MAP_STYLE_URL as string | undefined),
+  'https://tiles.openfreemap.org/styles/liberty',
+  'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+].filter((s): s is string => Boolean(s));
 
 export interface CivicMapProps {
   viewport?: MapViewport;
@@ -79,30 +85,19 @@ export const CivicMap: React.FC<CivicMapProps> = ({
     let mounted = true;
     let mapInstance: any = null;
     let loadTimeout: ReturnType<typeof setTimeout> | null = null;
+    let styleIndex = 0;
+    let styleLoaded = false;
+    let overlaysAdded = false;
 
     const initMap = async () => {
       try {
-        // Ensure maplibre-gl CSS is loaded
-        if (!document.querySelector('link[href*="maplibre-gl"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
-          document.head.appendChild(link);
-          // Wait for CSS to load
-          await new Promise((resolve) => {
-            link.onload = resolve;
-            link.onerror = resolve;
-            setTimeout(resolve, 1000);
-          });
-        }
-
         const maplibregl = await import('maplibre-gl');
 
         if (!mounted || !mapContainer.current) return;
 
         mapInstance = new maplibregl.Map({
           container: mapContainer.current,
-          style: MAP_STYLE,
+          style: MAP_STYLES[0],
           center: [viewport.longitude, viewport.latitude],
           zoom: viewport.zoom,
           pitch: viewport.pitch || 0,
@@ -113,21 +108,23 @@ export const CivicMap: React.FC<CivicMapProps> = ({
           minZoom: 10,
         });
 
-        if (!compact) {
-          mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-        }
-
-        // Fallback: set loaded after timeout if load event doesn't fire
-        loadTimeout = setTimeout(() => {
-          if (mounted) {
-            setMapLoaded(true);
+        // Automatic provider fallback: if a style fails to load, try the next
+        // configured basemap so the map never stays blank.
+        const tryNextStyle = () => {
+          if (!mapInstance || !mounted || styleLoaded) return;
+          styleIndex += 1;
+          overlaysAdded = false;
+          if (styleIndex < MAP_STYLES.length) {
+            mapInstance.setStyle(MAP_STYLES[styleIndex]);
           }
-        }, 3000);
+        };
 
-        mapInstance.on('load', () => {
-          if (loadTimeout) clearTimeout(loadTimeout);
-          if (!mounted) return;
-          setMapLoaded(true);
+        // Add CiviNest overlay layers (wards, impact radius). Idempotent so it
+        // can run from both the `load` event and the style-data fallback.
+        const addOverlays = () => {
+          if (overlaysAdded || !mapInstance || !mounted) return;
+          if (!mapInstance.isStyleLoaded()) return;
+          overlaysAdded = true;
 
           // Add ward boundaries
           mapInstance.addSource('wards', {
@@ -175,7 +172,46 @@ export const CivicMap: React.FC<CivicMapProps> = ({
               'circle-stroke-opacity': 0.4,
             },
           });
+        };
+
+        const markReady = () => {
+          if (!mounted) return;
+          if (loadTimeout) clearTimeout(loadTimeout);
+          loadTimeout = null;
+          addOverlays();
+          setMapLoaded(true);
+        };
+
+        mapInstance.on('styledata', () => {
+          styleLoaded = true;
+          // The `load` event can be blocked indefinitely when a provider's
+          // glyph/font requests never resolve, so treat style data arrival as
+          // a readiness signal and schedule our own fallback.
+          loadTimeout = setTimeout(markReady, 1500);
         });
+
+        mapInstance.on('error', (e: any) => {
+          const msg = e?.error?.message || '';
+          // Only treat style/tile-fetch failures before the first styledata as
+          // a provider problem; individual tile 404s after load are ignored.
+          if (!styleLoaded && (/style|tile|fetch|network|CORS/i.test(msg) || /failed/i.test(msg))) {
+            tryNextStyle();
+          }
+        });
+
+        // Timeout guard: if no style data within 8s, rotate to the next provider.
+        setTimeout(() => {
+          if (mounted && !styleLoaded) tryNextStyle();
+        }, 8000);
+
+        if (!compact) {
+          mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        }
+
+        // Last-resort fallback: set loaded after timeout if nothing fired.
+        loadTimeout = setTimeout(markReady, 6000);
+
+        mapInstance.on('load', markReady);
 
         // Viewport changes
         if (onViewportChange) {

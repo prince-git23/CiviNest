@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { Report, IReport } from '../models/Report.js';
+import { Report, IReport, locationPointFrom } from '../models/Report.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { CreateReportInput, UpdateReportInput } from '../validators/report.validator.js';
 
@@ -28,12 +28,16 @@ export async function createReport(req: AuthRequest, res: Response): Promise<voi
       subcategory: input.subcategory,
       priority: input.priority || 'medium',
       location: input.location,
+      locationPoint: locationPointFrom({
+        latitude: input.location.latitude!,
+        longitude: input.location.longitude!,
+      }),
       evidence: input.evidence || [],
       analysis: input.analysis,
       timeline: [
         {
           status: 'Report Lodged',
-          timestamp: new Date().toLocaleString(),
+          timestamp: new Date().toISOString(),
           note: 'Civic signal submitted and queued for review.',
           actor: 'Resident',
         },

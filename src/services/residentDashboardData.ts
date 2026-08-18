@@ -5,7 +5,7 @@ import {
   DashboardNearbyIssue,
   SpatialMapNode,
 } from '../types';
-import { getResidentDashboard, ReportData, AIInsightData } from './api';
+import { getResidentDashboard, getWardMetrics, ReportData, AIInsightData } from './api';
 
 const CATEGORY_TO_REPORT: Record<string, DashboardReportItem['category']> = {
   water_supply: 'water',
@@ -84,7 +84,7 @@ function clusterToSpatialNode(c: ClusterShape): SpatialMapNode {
 
 function toAIInsight(a: AIInsightData): DashboardAIInsight {
   return {
-    id: `insight-${a.category}`,
+    id: a.id || `insight-${a.category}`,
     eyebrow: 'AI Insight',
     headline: a.title || 'Trending concern in your area',
     description: a.description || '',
@@ -92,6 +92,9 @@ function toAIInsight(a: AIInsightData): DashboardAIInsight {
     confidenceScore: a.confidence != null ? Math.round(a.confidence * 100) : 80,
     affectedSector: a.locality || a.ward || 'Your locality',
     actionCta: 'Explore affected area',
+    clusterId: a.clusterId,
+    priority: a.priority,
+    location: a.location,
   };
 }
 
@@ -137,6 +140,39 @@ export async function fetchResidentDashboard(base: DashboardDataset): Promise<Da
     const d = res.dashboard;
     const clusters = (d.nearbyClusters || []) as unknown as ClusterShape[];
 
+    // Pull real ward metrics so the Local Civic Health card matches the
+    // Ward Sensor Metrics page (same source of truth).
+    let civicHealth = { ...base.civicHealth };
+    try {
+      const wm = await getWardMetrics();
+      const m = wm.metrics;
+      civicHealth = {
+        wardName: m.ward || base.civicHealth.wardName,
+        locality: m.locality || base.civicHealth.locality,
+        overallScore: m.overallScore,
+        categories: m.metrics.map((cat) => {
+          const iconMap: Record<string, DashboardDataset['civicHealth']['categories'][number]['icon']> = {
+            water_supply: 'water',
+            street_lighting: 'lighting',
+            roads: 'roads',
+            drainage: 'sanitation',
+            waste: 'sanitation',
+            electricity: 'lighting',
+          };
+          return {
+            id: cat.category,
+            name: cat.label,
+            score: cat.score,
+            maxScore: 100,
+            status: cat.score >= 80 ? 'Optimal' : cat.score >= 70 ? 'Good' : cat.score >= 55 ? 'Fair' : 'Critical',
+            icon: iconMap[cat.category] || 'roads',
+          };
+        }),
+      };
+    } catch {
+      // Ward metrics unavailable — keep the existing civic health block.
+    }
+
     return {
       ...base,
       user: {
@@ -146,12 +182,7 @@ export async function fetchResidentDashboard(base: DashboardDataset): Promise<Da
         community: d.locality || base.user.community,
         role: res.user?.role || base.user.role,
       },
-      civicHealth: {
-        ...base.civicHealth,
-        wardName: d.ward || base.civicHealth.wardName,
-        locality: d.locality || base.civicHealth.locality,
-        overallScore: Math.min(Math.max(d.impactScore || 70, 0), 100),
-      },
+      civicHealth,
       spatialNodes: clusters.map(clusterToSpatialNode),
       activeReports: (d.recentReports || []).map(toReportItem),
       aiInsight: d.aiInsight ? toAIInsight(d.aiInsight) : base.aiInsight,

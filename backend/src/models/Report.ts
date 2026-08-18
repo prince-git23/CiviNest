@@ -18,6 +18,11 @@ export interface IReport extends Document {
     longitude: number;
     accuracy?: string;
   };
+  /** GeoJSON Point for 2dsphere geographic queries (longitude, latitude) */
+  locationPoint?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
   evidence: {
     id: string;
     url: string;
@@ -40,6 +45,33 @@ export interface IReport extends Document {
     note: string;
     actor?: string;
   }[];
+  /** Municipal operations state (optional — set only once the issue reaches the municipal workflow). */
+  municipal?: {
+    department?: string;
+    departmentId?: string;
+    team?: string;
+    teamId?: string;
+    assignedAt?: string;
+    inProgressAt?: string;
+    workCompletedAt?: string;
+    resolutionSubmittedAt?: string;
+    resolution?: {
+      description: string;
+      submittedBy: string;
+      submittedById: string;
+      evidence: { id: string; url: string; name: string; type: string; size: string }[];
+      submittedAt: string;
+    };
+    priorityOverrides?: {
+      previous: string;
+      new: string;
+      officer: string;
+      officerId: string;
+      reason: string;
+      timestamp: string;
+    }[];
+    notes?: { text: string; author: string; authorId: string; timestamp: string }[];
+  };
   upvotes: number;
   createdAt: Date;
   updatedAt: Date;
@@ -94,6 +126,20 @@ const reportSchema = new Schema<IReport>(
       longitude: { type: Number, required: true },
       accuracy: { type: String },
     },
+    // GeoJSON Point for 2dsphere queries. Optional so pre-existing records
+    // (created before this field existed) remain savable; new reports set it
+    // via locationPointFrom() in the report/signal services.
+    locationPoint: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined,
+      },
+    },
     evidence: [
       {
         id: String,
@@ -120,13 +166,82 @@ const reportSchema = new Schema<IReport>(
         actor: String,
       },
     ],
+    municipal: {
+      department: { type: String, default: '' },
+      departmentId: { type: String, default: '' },
+      team: { type: String, default: '' },
+      teamId: { type: String, default: '' },
+      assignedAt: { type: String, default: '' },
+      inProgressAt: { type: String, default: '' },
+      workCompletedAt: { type: String, default: '' },
+      resolutionSubmittedAt: { type: String, default: '' },
+      resolution: {
+        description: { type: String, default: '' },
+        submittedBy: { type: String, default: '' },
+        submittedById: { type: String, default: '' },
+        evidence: [
+          {
+            id: { type: String, default: '' },
+            url: { type: String, default: '' },
+            name: { type: String, default: '' },
+            type: { type: String, default: '' },
+            size: { type: String, default: '' },
+          },
+        ],
+        submittedAt: { type: String, default: '' },
+      },
+      priorityOverrides: [
+        {
+          previous: String,
+          new: String,
+          officer: String,
+          officerId: String,
+          reason: String,
+          timestamp: String,
+        },
+      ],
+      notes: [
+        {
+          text: String,
+          author: String,
+          authorId: String,
+          timestamp: String,
+        },
+      ],
+    },
     upvotes: { type: Number, default: 1 },
   },
   { timestamps: true }
 );
 
+// Keep the GeoJSON point consistent with location on every save so the
+// 2dsphere index never sees a Point without coordinates (older records
+// predate the field and are backfilled here).
+reportSchema.pre('save', function (next) {
+  const doc = this as any;
+  if (
+    doc.location &&
+    Number.isFinite(doc.location.latitude) &&
+    Number.isFinite(doc.location.longitude)
+  ) {
+    doc.locationPoint = locationPointFrom(doc.location);
+  }
+  next();
+});
+
 reportSchema.index({ userId: 1, createdAt: -1 });
 reportSchema.index({ status: 1 });
 reportSchema.index({ category: 1 });
+reportSchema.index({ locationPoint: '2dsphere' });
+
+export function locationPointFrom(location: { latitude: number; longitude: number }): {
+  type: 'Point';
+  coordinates: [number, number];
+} {
+  return {
+    type: 'Point',
+    coordinates: [location.longitude, location.latitude],
+  };
+}
 
 export const Report = mongoose.model<IReport>('Report', reportSchema);

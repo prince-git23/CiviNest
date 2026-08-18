@@ -72,7 +72,8 @@ export function convertCluster(c: BackendCluster): IssueCluster {
 }
 
 export interface MapIssueInput {
-  _id: string;
+  _id?: string;
+  id?: string;
   title: string;
   category?: string;
   status?: string;
@@ -86,7 +87,7 @@ export interface MapIssueInput {
 
 export function convertIssue(r: MapIssueInput): CivicIssue {
   return {
-    id: r._id,
+    id: r.id || r._id || '',
     title: r.title || 'Civic issue',
     category: mapCategory(r.category || r.analysis?.category),
     latitude: r.location?.latitude ?? 21.1458,

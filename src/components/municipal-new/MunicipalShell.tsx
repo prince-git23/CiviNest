@@ -83,6 +83,7 @@ export const MunicipalShell: React.FC<MunicipalShellProps> = ({
               onSwitchToCitizenView={onSwitchToCitizenView}
               onClose={() => setMobileDrawerOpen(false)}
               isMobile
+              authenticatedUser={authenticatedUser}
             />
           </div>
         </div>
@@ -94,6 +95,7 @@ export const MunicipalShell: React.FC<MunicipalShellProps> = ({
           activePage={activePage}
           onSelectPage={handleNavClick}
           onSwitchToCitizenView={onSwitchToCitizenView}
+          authenticatedUser={authenticatedUser}
         />
       </aside>
 
@@ -184,6 +186,7 @@ interface SidebarContentProps {
   onSwitchToCitizenView?: () => void;
   onClose?: () => void;
   isMobile?: boolean;
+  authenticatedUser?: AuthenticatedUser;
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({
@@ -192,6 +195,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   onSwitchToCitizenView,
   onClose,
   isMobile = false,
+  authenticatedUser,
 }) => {
   return (
     <div className="flex flex-col h-full">
@@ -237,17 +241,17 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         })}
       </nav>
 
-      {/* Bottom: Officer Info */}
+      {/* Bottom: Officer Info — always from the authenticated session */}
       <div className="p-4 border-t border-[#E5E7EB]">
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-9 h-9 rounded-full bg-[#1E293B] text-white flex items-center justify-center text-xs font-semibold">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            {authenticatedUser?.name ? authenticatedUser.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() : 'MO'}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#111827] truncate">Municipal Officer</p>
-            <p className="text-xs text-[#6B7280]">Ward 14 • Nagpur</p>
+            <p className="text-sm font-semibold text-[#111827] truncate">{authenticatedUser?.name || 'Municipal Officer'}</p>
+            <p className="text-xs text-[#6B7280]">
+              {[authenticatedUser?.ward, authenticatedUser?.city].filter(Boolean).join(' • ') || 'Municipal Operations'}
+            </p>
           </div>
         </div>
       </div>

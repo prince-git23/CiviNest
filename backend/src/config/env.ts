@@ -2,7 +2,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 const envPath = path.resolve(process.cwd(), '.env');
-dotenv.config({ path: envPath });
+// The project's own .env is the source of truth — override inherited host
+// environment variables (e.g. PORT=0 injected by some sandboxes) so the
+// backend always listens on the configured port.
+dotenv.config({ path: envPath, override: true });
 
 export const env = {
   PORT: parseInt(process.env.PORT || '5000', 10),

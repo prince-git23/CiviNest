@@ -47,7 +47,7 @@ export const RepresentativeSidebar: React.FC<RepresentativeSidebarProps> = ({
     badge?: string;
   }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'issues', label: 'Community Issues', icon: AlertTriangle, badge: '12' },
+    { id: 'issues', label: 'Community Issues', icon: AlertTriangle },
     { id: 'aggregation', label: 'Issue Aggregation', icon: GitMerge },
     { id: 'members', label: 'Community Members', icon: Users },
     { id: 'analytics', label: 'Community Analytics', icon: BarChart3 },

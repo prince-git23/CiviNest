@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { DashboardSidebar, DashboardViewSection } from '../components/dashboard/DashboardSidebar';
@@ -87,6 +88,8 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const navigate = useNavigate();
+
   // Modals state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -102,6 +105,13 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
+
+  // Navigate to a resident route (works from both the resident router and the
+  // legacy app shell, both of which render inside a BrowserRouter).
+  const goTo = useCallback((path: string) => {
+    navigate(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [navigate]);
 
   // Handle Support Action on Trending Issue
   const handleSupportIssue = (issueId: string) => {
@@ -214,14 +224,14 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
         ward={data.user.ward}
         community={data.user.community}
         civicHealth={data.civicHealth}
-        onExploreHealth={() => onNavigateToPage?.('map-explorer')}
+        onExploreHealth={() => goTo('/resident/ward-metrics')}
       />
       </div>
 
       {/* B. Quick Action Bar */}
       <div data-animate="card">
       <QuickActionBar
-        onReportIssue={onNavigateToCreateSignal || (() => setIsReportModalOpen(true))}
+        onReportIssue={onNavigateToCreateSignal || (() => goTo('/resident/report'))}
         onAddPhoto={() => setIsPhotoModalOpen(true)}
         onUseVoice={() => setIsVoiceModalOpen(true)}
         onShareLocation={() => setIsLocationModalOpen(true)}
@@ -265,14 +275,22 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
               setSelectedReport(report);
               setSelectedMapNode(null);
             }}
-            onViewAll={() => onNavigateToPage?.('my-reports')}
+            onViewAll={() => goTo('/resident/reports')}
           />
 
           <AIInsightCard
             insight={data.aiInsight}
             onExplorePattern={() => {
-              onNavigateToPage?.('map-explorer');
-              showToast('Focusing spatial map on street lighting signal cluster.');
+              const insight = data.aiInsight;
+              const params = new URLSearchParams();
+              if (insight?.clusterId) params.set('cluster', insight.clusterId);
+              if (insight?.location) {
+                params.set('lat', String(insight.location.latitude));
+                params.set('lng', String(insight.location.longitude));
+                params.set('title', insight.headline);
+              }
+              const qs = params.toString();
+              goTo(`/resident/explore${qs ? `?${qs}` : ''}`);
             }}
           />
         </div>
@@ -281,9 +299,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
         <div className="space-y-6 flex flex-col">
           <CivicImpactCard
             impact={data.impact}
-            onOpenDetails={() => {
-              onNavigateToPage?.('impact-score');
-            }}
+            onOpenDetails={() => goTo('/resident/impact')}
           />
 
           <CommunityPulse data={data.communityPulse} />
@@ -296,7 +312,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
         issues={data.nearbyIssues}
         onSupportIssue={handleSupportIssue}
         onViewData={(issue) => {
-          showToast(`Analyzing telemetry trends for: ${issue.title}`);
+          goTo(`/resident/trends/${issue.id}`);
         }}
       />
       </div>
@@ -328,6 +344,11 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
         report={selectedReport}
         mapNode={selectedMapNode}
         onConfirmResolution={handleConfirmResolution}
+        onViewReport={(reportId) => {
+          setSelectedReport(null);
+          setSelectedMapNode(null);
+          goTo(`/resident/reports/${reportId}`);
+        }}
       />
 
       {/* Voice Reporter Modal */}

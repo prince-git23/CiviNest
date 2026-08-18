@@ -15,7 +15,7 @@ interface ApiResponse<T = unknown> {
   error?: string;
 }
 
-async function apiRequest<T = unknown>(
+export async function apiRequest<T = unknown>(
   endpoint: string,
   options: ApiOptions = {}
 ): Promise<ApiResponse<T>> {
@@ -320,6 +320,71 @@ export async function submitSignal(data: {
   return res.data;
 }
 
+// AI review preview — runs the analysis pipeline WITHOUT persisting a signal.
+export interface SignalAnalysisPreview {
+  category: string;
+  categoryLabel: string;
+  subcategory: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'UNKNOWN';
+  urgency: string;
+  affectedService: string;
+  publicSafety: boolean;
+  keywords: string[];
+  reasoning: string;
+  confidence: number | null;
+  confidenceSource: 'MODEL' | 'ESTIMATED' | null;
+  aiAnalysisStatus: 'AVAILABLE' | 'UNAVAILABLE';
+  priority: CivicSignalData['priority'];
+  piiRedacted: boolean;
+  piiDetected: string[];
+}
+
+export async function analyzeSignal(data: {
+  rawText: string;
+  location: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    ward?: string;
+    city?: string;
+  };
+}): Promise<{
+  analysis: SignalAnalysisPreview;
+  nearby: NearbyIssueItem[];
+}> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ analysis: SignalAnalysisPreview; nearby: NearbyIssueItem[] }>(
+    '/resident/signals/analyze',
+    { method: 'POST', body: data, token: token || undefined }
+  );
+  if (!res.data) throw new ApiError(res.error || 'Failed to analyze signal', 400);
+  return res.data;
+}
+
+export interface CivicIssueDetail {
+  id: string;
+  reportNumber: string;
+  title: string;
+  category: string;
+  status: string;
+  priority: string;
+  latitude: number;
+  longitude: number;
+  ward?: string;
+  locality?: string;
+  confidence?: number;
+  createdAt?: string;
+}
+
+export async function getIssueById(id: string): Promise<{ issue: CivicIssueDetail }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ issue: CivicIssueDetail }>(`/resident/issues/${id}`, {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Issue not found', 404);
+  return res.data;
+}
+
 export async function getSignalById(id: string): Promise<{ signal: CivicSignalData }> {
   const token = localStorage.getItem('civinest_token');
   const res = await apiRequest<{ signal: CivicSignalData }>(`/resident/signals/${id}`, {
@@ -358,6 +423,8 @@ export interface ResidentDashboardData {
 }
 
 export interface AIInsightData {
+  id: string;
+  clusterId?: string;
   title: string;
   description: string;
   category: string;
@@ -365,6 +432,14 @@ export interface AIInsightData {
   confidence: number;
   ward: string;
   locality: string;
+  priority?: { score: number; level: string };
+  location?: {
+    latitude: number;
+    longitude: number;
+    ward: string;
+    locality: string;
+  };
+  relatedClusterIds?: string[];
 }
 
 export async function getResidentDashboard(): Promise<{
@@ -412,23 +487,114 @@ export async function getResidentInsights(): Promise<{ insights: AIInsightData[]
 
 // ── Discussions ──
 
+export interface DiscussionAuthorData {
+  id: string;
+  displayName: string;
+  avatar?: string;
+}
+
+export interface DiscussionMessageData {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt?: string;
+}
+
 export interface DiscussionData {
-  _id: string;
-  issueId: string;
-  issueTitle: string;
+  id: string;
+  title: string;
+  body: string;
+  preview: string;
   category: string;
-  ward: string;
-  locality: string;
+  categoryLabel: string;
   status: 'OPEN' | 'ACTIVE' | 'CLOSED';
-  messages: {
-    userId: string;
-    userName: string;
-    text: string;
-    createdAt?: string;
-  }[];
-  confirmations: string[];
+  author: DiscussionAuthorData;
+  location: {
+    ward: string;
+    locality: string;
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+  };
+  issueId?: string;
+  issueTitle?: string;
+  replyCount: number;
+  confirmationCount: number;
+  confirmedByMe: boolean;
+  messages?: DiscussionMessageData[];
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
+}
+
+export interface DiscussionFacetsData {
+  all: number;
+  water_supply: number;
+  roads: number;
+  street_lighting: number;
+  sanitation: number;
+  public_safety: number;
+  environment: number;
+  community: number;
+  other: number;
+  wards: { name: string; count: number }[];
+}
+
+export interface DiscussionListData {
+  discussions: DiscussionData[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+  facets: DiscussionFacetsData;
+}
+
+export async function getResidentDiscussions(params?: {
+  search?: string;
+  status?: string;
+  ward?: string;
+  category?: string;
+  page?: number;
+  limit?: number;
+  sort?: 'latest' | 'supported';
+}): Promise<DiscussionListData> {
+  const token = localStorage.getItem('civinest_token');
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.status && params.status !== 'all') query.set('status', params.status);
+  if (params?.ward && params.ward !== 'all') query.set('ward', params.ward);
+  if (params?.category && params.category !== 'all') query.set('category', params.category);
+  if (params?.page && params.page > 1) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.sort) query.set('sort', params.sort);
+  const qs = query.toString();
+  const res = await apiRequest<DiscussionListData>(`/resident/discussions${qs ? '?' + qs : ''}`, {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load discussions', 400);
+  return res.data;
+}
+
+export async function createDiscussion(data: {
+  title: string;
+  body: string;
+  category: string;
+  ward?: string;
+  locality?: string;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+    ward?: string;
+    locality?: string;
+  };
+  issueId?: string;
+}): Promise<{ discussion: DiscussionData }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ discussion: DiscussionData }>('/resident/discussions', {
+    method: 'POST',
+    body: data,
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to start discussion', 400);
+  return res.data;
 }
 
 export async function getDiscussion(id: string): Promise<{ discussion: DiscussionData }> {
@@ -440,33 +606,28 @@ export async function getDiscussion(id: string): Promise<{ discussion: Discussio
   return res.data;
 }
 
-export async function postDiscussionMessage(id: string, text: string): Promise<{ message: DiscussionData['messages'][number] }> {
+export async function postDiscussionMessage(
+  id: string,
+  text: string
+): Promise<{ message: DiscussionMessageData; discussion: DiscussionData }> {
   const token = localStorage.getItem('civinest_token');
-  const res = await apiRequest<{ message: DiscussionData['messages'][number] }>(`/resident/discussions/${id}/messages`, {
-    method: 'POST',
-    body: { text },
-    token: token || undefined,
-  });
+  const res = await apiRequest<{ message: DiscussionMessageData; discussion: DiscussionData }>(
+    `/resident/discussions/${id}/messages`,
+    { method: 'POST', body: { text }, token: token || undefined }
+  );
   if (!res.data) throw new ApiError(res.error || 'Failed to post message', 400);
   return res.data;
 }
 
-export async function confirmDiscussion(id: string): Promise<{ confirmations: number }> {
+export async function confirmDiscussion(
+  id: string
+): Promise<{ confirmations: number; confirmed: boolean; discussion: DiscussionData }> {
   const token = localStorage.getItem('civinest_token');
-  const res = await apiRequest<{ confirmations: number }>(`/resident/discussions/${id}/confirm`, {
-    method: 'POST',
-    token: token || undefined,
-  });
+  const res = await apiRequest<{ confirmations: number; confirmed: boolean; discussion: DiscussionData }>(
+    `/resident/discussions/${id}/confirm`,
+    { method: 'POST', token: token || undefined }
+  );
   if (!res.data) throw new ApiError(res.error || 'Failed to confirm', 400);
-  return res.data;
-}
-
-export async function getResidentDiscussions(): Promise<{ discussions: DiscussionData[] }> {
-  const token = localStorage.getItem('civinest_token');
-  const res = await apiRequest<{ discussions: DiscussionData[] }>('/resident/discussions', {
-    token: token || undefined,
-  });
-  if (!res.data) throw new ApiError(res.error || 'Failed to load discussions', 400);
   return res.data;
 }
 
@@ -500,5 +661,191 @@ export async function verifyReport(
     token: token || undefined,
   });
   if (!res.data) throw new ApiError(res.error || 'Failed to verify', 400);
+  return res.data;
+}
+
+// ── Ward Sensor Metrics ──
+
+export interface WardMetricCategory {
+  category: string;
+  label: string;
+  score: number;
+  status: 'healthy' | 'moderate' | 'attention' | 'critical';
+  icon: 'water' | 'lighting' | 'roads' | 'sanitation';
+  activeIssues: number;
+  lastUpdated: string;
+  trend: 'improving' | 'stable' | 'declining';
+  detail: string;
+}
+
+export interface WardSensorStatus {
+  name: string;
+  status: 'operational' | 'degraded' | 'offline';
+  value: string;
+  unit: string;
+  lastUpdated: string;
+}
+
+export interface WardMetricsData {
+  ward: string;
+  locality: string;
+  city: string;
+  overallScore: number;
+  metrics: WardMetricCategory[];
+  sensors: WardSensorStatus[];
+  updatedAt: string;
+  source: 'live' | 'demo';
+}
+
+export async function getWardMetrics(): Promise<{ metrics: WardMetricsData }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ metrics: WardMetricsData }>('/resident/ward/metrics', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load ward metrics', 400);
+  return res.data;
+}
+
+// ── Trends ──
+
+export interface TrendSummaryData {
+  id: string;
+  clusterCode: string;
+  title: string;
+  category: string;
+  categoryLabel: string;
+  ward: string;
+  locality: string;
+  city: string;
+  reportCount: number;
+  independentResidents: number;
+  confirmationCount: number;
+  priority: { score: number; level: string };
+  confidence: number;
+  trendDirection: 'increasing' | 'stable' | 'declining';
+  status: string;
+  affectedArea: string;
+  firstReported: string | null;
+  latestReport: string | null;
+  center: { latitude: number; longitude: number };
+  radiusMeters: number;
+  keywords: string[];
+}
+
+export interface TrendDetailData extends TrendSummaryData {
+  description: string;
+  severity: string;
+  relatedTrends: TrendSummaryData[];
+  recentReports: {
+    id: string;
+    reportNumber: string;
+    title: string;
+    status: string;
+    createdAt: string;
+    location: string;
+  }[];
+}
+
+export async function getTrends(): Promise<{ trends: TrendSummaryData[] }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ trends: TrendSummaryData[] }>('/resident/trends', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load trends', 400);
+  return res.data;
+}
+
+export async function getTrendById(id: string): Promise<{ trend: TrendDetailData }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ trend: TrendDetailData }>(`/resident/trends/${id}`, {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Trend not found', 404);
+  return res.data;
+}
+
+// ── Map extras ──
+
+export interface MapClusterDetail {
+  id: string;
+  clusterCode: string;
+  title: string;
+  category: string;
+  severity: string;
+  priority: { score: number; level: string };
+  center: { latitude: number; longitude: number };
+  ward: string;
+  locality: string;
+  status: string;
+  reportCount: number;
+  confirmationCount: number;
+  description?: string;
+  keywords?: string[];
+  recentSignals?: { id: string; text: string; createdAt: string }[];
+}
+
+export async function getMapClusterById(id: string): Promise<{ cluster: MapClusterDetail }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ cluster: MapClusterDetail }>(`/resident/map/clusters/${id}`, {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Cluster not found', 404);
+  return res.data;
+}
+
+export interface NearbyIssueItem {
+  id: string;
+  reportNumber: string;
+  title: string;
+  category: string;
+  status: string;
+  priority: string;
+  latitude: number;
+  longitude: number;
+  ward?: string;
+  locality?: string;
+  address?: string;
+  createdAt?: string;
+  distanceMeters?: number;
+}
+
+export async function getNearbyIssues(params: {
+  latitude: number;
+  longitude: number;
+  radius?: number;
+  category?: string;
+  status?: string;
+}): Promise<{ issues: NearbyIssueItem[]; count: number }> {
+  const token = localStorage.getItem('civinest_token');
+  const query = new URLSearchParams({
+    lat: String(params.latitude),
+    lng: String(params.longitude),
+    radius: String(params.radius || 500),
+  });
+  if (params.category) query.set('category', params.category);
+  if (params.status) query.set('status', params.status);
+  const res = await apiRequest<{ issues: NearbyIssueItem[]; count: number }>(
+    `/resident/map/nearby?${query.toString()}`,
+    { token: token || undefined }
+  );
+  if (!res.data) throw new ApiError(res.error || 'Failed to load nearby issues', 400);
+  return res.data;
+}
+
+export async function getMapWards(): Promise<{ wards: { name: string }[] }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ wards: { name: string }[] }>('/resident/map/wards', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load wards', 400);
+  return res.data;
+}
+
+export async function getMapLocalities(): Promise<{ localities: { name: string }[] }> {
+  const token = localStorage.getItem('civinest_token');
+  const res = await apiRequest<{ localities: { name: string }[] }>('/resident/map/localities', {
+    token: token || undefined,
+  });
+  if (!res.data) throw new ApiError(res.error || 'Failed to load localities', 400);
   return res.data;
 }

@@ -28,7 +28,7 @@ import { LocationAdjustModal } from '../components/signal/LocationAdjustModal';
 import { SignalSuccessView } from '../components/signal/SignalSuccessView';
 import { CivicMap } from '../components/map/CivicMap';
 import type { MapViewport, GeoPoint } from '../services/geo/geoTypes';
-import { createReport } from '../services/api';
+import { createReport, getNearbyIssues } from '../services/api';
 import { getIssuesForViewport } from '../services/geo/mapDataService';
 import {
   analyzeCivicSignalText,
@@ -38,6 +38,17 @@ import {
   CivicSignalSubmission,
 } from '../services/signalAnalysisService';
 import type { AuthenticatedUser } from '../types';
+
+function timeAgo(iso?: string): string {
+  if (!iso) return 'Reported recently';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 type ReportStep = 1 | 2 | 3;
 
@@ -132,6 +143,41 @@ export const CreateReportPage: React.FC<CreateReportPageProps> = ({
       { scaleX: 1, duration: 0.4, ease: 'power2.out' }
     );
   }, [currentStep]);
+
+  // ── Real nearby-issue detection from the backend (geographic proximity) ──
+  // Overrides the local text-based duplicate with a real nearby report when one
+  // exists within the radius of the confirmed location.
+  useEffect(() => {
+    if (!location.coordinates || aiState !== 'analyzed') return;
+    let cancelled = false;
+    getNearbyIssues({
+      latitude: location.coordinates.lat,
+      longitude: location.coordinates.lng,
+      radius: 500,
+    })
+      .then((res) => {
+        if (cancelled || !res.issues?.length) return;
+        const top = res.issues[0];
+        setDuplicateMatch({
+          id: top.id,
+          reportNumber: top.reportNumber || `#CV-${top.id.slice(-4).toUpperCase()}`,
+          title: top.title,
+          category: top.category.replace(/_/g, ' '),
+          reportedAgo: top.createdAt ? timeAgo(top.createdAt) : 'Reported recently',
+          distance: top.distanceMeters != null ? `${Math.round(top.distanceMeters)}m away` : 'Nearby',
+          supportCount: 1,
+          description: `Existing ${top.status} civic report registered near this location.`,
+          status: top.status,
+          similarityScore: Math.max(60, Math.min(97, 100 - Math.round((top.distanceMeters ?? 500) / 20))),
+        });
+      })
+      .catch(() => {
+        // Backend unavailable — keep the local text-based duplicate result.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [location.coordinates?.lat, location.coordinates?.lng, aiState]);
 
   // ── AI analysis (runs in background) ──
   useEffect(() => {

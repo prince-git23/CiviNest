@@ -16,7 +16,10 @@ export function getNotificationDestination(notification: MunicipalNotification):
     case 'COMMUNITY_ESCALATION':
       return 'issue-triage';
     case 'RESIDENT_CONFIRMATION':
+    case 'RESOLUTION_SUBMITTED':
       return 'resolution-verification';
+    case 'ISSUE_REOPENED':
+      return 'issue-triage';
     case 'SYSTEM':
       return 'command-center';
     default:
@@ -28,8 +31,8 @@ export const NOTIFICATION_FILTER_GROUPS: Record<
   Exclude<MunicipalNotificationFilter, 'all' | 'unread'>,
   MunicipalNotificationType[]
 > = {
-  issues: ['ISSUE_ASSIGNED', 'CRITICAL_ISSUE', 'SLA_WARNING', 'SLA_BREACH', 'ISSUE_UPDATED'],
-  operations: ['RESIDENT_CONFIRMATION', 'COMMUNITY_ESCALATION'],
+  issues: ['ISSUE_ASSIGNED', 'CRITICAL_ISSUE', 'SLA_WARNING', 'SLA_BREACH', 'ISSUE_UPDATED', 'ISSUE_REOPENED'],
+  operations: ['RESIDENT_CONFIRMATION', 'RESOLUTION_SUBMITTED', 'COMMUNITY_ESCALATION'],
   system: ['SYSTEM'],
 };
 
@@ -59,6 +62,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<MunicipalNotificationType, string>
   ISSUE_UPDATED: 'Update',
   RESIDENT_CONFIRMATION: 'Verification',
   COMMUNITY_ESCALATION: 'Escalation',
+  RESOLUTION_SUBMITTED: 'Resolution',
+  ISSUE_REOPENED: 'Reopened',
   SYSTEM: 'System',
 };
 

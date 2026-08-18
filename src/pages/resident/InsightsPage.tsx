@@ -120,7 +120,17 @@ export const InsightsPage: React.FC = () => {
                     </span>
                   )}
                   <Link
-                    to="/resident/explore"
+                    to={(() => {
+                      const params = new URLSearchParams();
+                      if (insight.clusterId) params.set('cluster', insight.clusterId);
+                      if (insight.location) {
+                        params.set('lat', String(insight.location.latitude));
+                        params.set('lng', String(insight.location.longitude));
+                        params.set('title', insight.title);
+                      }
+                      const qs = params.toString();
+                      return `/resident/explore${qs ? `?${qs}` : ''}`;
+                    })()}
                     className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 transition-colors"
                   >
                     Explore affected area →

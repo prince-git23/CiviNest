@@ -30,28 +30,28 @@ export interface ProcessSignalResult {
   issueId?: string;
 }
 
-export async function processSignal(userId: string, input: ProcessSignalInput): Promise<ProcessSignalResult> {
-  // 1. Validate input
+export interface SignalAnalysisResult {
+  rawText: string;
+  piiRedacted: boolean;
+  piiDetected: string[];
+  classification: AIClassificationResult;
+  aiAnalysisStatus: 'AVAILABLE' | 'UNAVAILABLE';
+  priority: ReturnType<typeof calculatePriority>;
+}
+
+/**
+ * Run the analysis pipeline (PII redaction → AI classification → priority)
+ * WITHOUT persisting anything. Used by the AI-review preview endpoint so the
+ * resident can confirm the interpretation before a signal is created.
+ */
+export async function analyzeSignalInput(input: ProcessSignalInput): Promise<SignalAnalysisResult> {
   if (!input.rawText || input.rawText.trim().length < 5) {
     throw new Error('Signal text must be at least 5 characters.');
   }
 
-  // 2. PII redaction
   const pii = redactPII(input.rawText);
+  const text = pii.wasRedacted ? pii.redactedText : input.rawText;
 
-  // 3. Create signal record (store redacted text only when PII was found)
-  const signal = await CivicSignal.create({
-    userId,
-    signalNumber: `SIG-${Date.now().toString(36).toUpperCase()}`,
-    rawText: pii.wasRedacted ? pii.redactedText : input.rawText,
-    redactedText: pii.wasRedacted ? pii.redactedText : undefined,
-    piiRedacted: pii.wasRedacted,
-    piiDetected: pii.detected,
-    status: 'PROCESSING',
-    location: input.location || null,
-  });
-
-  // 4. AI classification
   let classification: AIClassificationResult;
   let aiAnalysisStatus: 'AVAILABLE' | 'UNAVAILABLE' = 'UNAVAILABLE';
 
@@ -60,13 +60,9 @@ export async function processSignal(userId: string, input: ProcessSignalInput): 
     if (!provider) {
       throw new AIUnavailableError(`AI provider not found: ${process.env.AI_PROVIDER}`);
     }
-    classification = await provider.classify({
-      text: signal.rawText,
-      location: input.location,
-    });
+    classification = await provider.classify({ text, location: input.location });
     aiAnalysisStatus = 'AVAILABLE';
   } catch (error) {
-    // AI failure → mark unavailable, use conservative fallback
     const fallback: AIClassificationResult = {
       category: 'UNCLASSIFIED',
       categoryLabel: 'Unclassified',
@@ -84,22 +80,6 @@ export async function processSignal(userId: string, input: ProcessSignalInput): 
     classification = fallback;
   }
 
-  // 5. Save classification
-  signal.category = classification.category;
-  signal.subcategory = classification.subcategory;
-  signal.severity = classification.severity;
-  signal.aiConfidence = classification.confidence;
-  signal.confidenceSource = classification.confidenceSource;
-  signal.aiAnalysisStatus = aiAnalysisStatus;
-  signal.keywords = classification.keywords;
-  signal.affectedService = classification.affectedService;
-  signal.publicSafety = classification.publicSafety;
-  signal.reasoning = classification.reasoning;
-  signal.modelName = classification.model;
-  signal.status = 'ANALYZED';
-  await signal.save();
-
-  // 6. Priority engine (deterministic)
   const priority = calculatePriority({
     severity: classification.severity,
     urgency: classification.urgency,
@@ -109,7 +89,47 @@ export async function processSignal(userId: string, input: ProcessSignalInput): 
     clusterSize: 1,
     evidenceQuality: input.location ? 0.7 : 0.4,
   });
-  signal.priority = priority;
+
+  return {
+    rawText: text,
+    piiRedacted: pii.wasRedacted,
+    piiDetected: pii.detected,
+    classification,
+    aiAnalysisStatus,
+    priority,
+  };
+}
+
+export async function processSignal(userId: string, input: ProcessSignalInput): Promise<ProcessSignalResult> {
+  // 1-6. Analysis pipeline (validates input, redacts PII, classifies, priority)
+  const analysis = await analyzeSignalInput(input);
+  const { classification, aiAnalysisStatus, priority, piiRedacted, piiDetected } = analysis;
+
+  // 3. Create signal record (store redacted text only when PII was found)
+  const signal = await CivicSignal.create({
+    userId,
+    signalNumber: `SIG-${Date.now().toString(36).toUpperCase()}`,
+    rawText: analysis.rawText,
+    redactedText: piiRedacted ? analysis.rawText : undefined,
+    piiRedacted,
+    piiDetected,
+    status: 'PROCESSING',
+    location: input.location || null,
+    category: classification.category,
+    subcategory: classification.subcategory,
+    severity: classification.severity,
+    aiConfidence: classification.confidence,
+    confidenceSource: classification.confidenceSource,
+    aiAnalysisStatus,
+    keywords: classification.keywords,
+    affectedService: classification.affectedService,
+    publicSafety: classification.publicSafety,
+    reasoning: classification.reasoning,
+    modelName: classification.model,
+    priority,
+  });
+
+  signal.status = 'ANALYZED';
   await signal.save();
 
   // 7. Cluster detection

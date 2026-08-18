@@ -13,6 +13,7 @@ import {
   ThumbsUp,
   Image as ImageIcon,
   Flame,
+  ChevronRight,
 } from 'lucide-react';
 import { DashboardReportItem } from '../../types';
 import ReportStatusBadge from './ReportStatusBadge';
@@ -134,6 +135,21 @@ export const ReportCard: React.FC<ReportCardProps> = ({
         <p className="text-xs sm:text-sm text-[#334155] leading-relaxed bg-[#F8FAFC] p-3.5 rounded-xl border border-[#F1F5F9]">
           {report.description}
         </p>
+      )}
+
+      {/* View details action */}
+      {onInspectDetails && (
+        <div className="pt-1">
+          <button
+            onClick={() => onInspectDetails(report)}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-[#F1F5F9] hover:border-[#CBD5E1] transition-all cursor-pointer group"
+          >
+            <span className="text-xs font-bold text-[#2563EB] group-hover:underline">
+              View Full Report
+            </span>
+            <ChevronRight className="w-4 h-4 text-[#2563EB]" />
+          </button>
+        </div>
       )}
 
       {/* Resolution Verification Card (if report is resolved or was reopened) */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import PublicNavbar from './components/navigation/PublicNavbar';
 import WorkspaceHeader, { WorkspaceTabId } from './components/navigation/WorkspaceHeader';
@@ -50,6 +50,13 @@ import { ClusterConfirmationResponse, defaultStreetLightingCluster, CivicCluster
 import { DashboardSidebar, DashboardViewSection } from './components/dashboard/DashboardSidebar';
 import { NotificationProvider } from './context/NotificationContext';
 import { ResidentRouter } from './pages/resident/ResidentRouter';
+import {
+  getCommunityNotifications,
+  markCommunityNotificationRead,
+  markAllCommunityNotificationsRead,
+  getCommunityProfile,
+} from './services/communityApi';
+import type { CommunityNotificationItem } from './services/communityApi';
 
 export type AppPageId =
   | 'platform'
@@ -72,7 +79,26 @@ export type AppPageId =
 
 export function App() {
   // CRITICAL REQUIREMENT: Application entry MUST be the public landing platform
-  const [currentPage, setCurrentPage] = useState<AppPageId>('platform');
+  const [currentPage, setCurrentPage] = useState<AppPageId>(() => {
+    // Restore the portal from a persisted session so a reload (e.g. after
+    // signing in as a representative or municipal officer) returns to the
+    // correct portal instead of the public landing page.
+    try {
+      const raw = localStorage.getItem('civinest_user');
+      if (raw) {
+        const u = JSON.parse(raw) as AuthenticatedUser;
+        const portalFor: Record<string, AppPageId> = {
+          community_rep: 'community-representative',
+          municipal_officer: 'municipal',
+          admin: 'municipal',
+        };
+        return portalFor[u.role] || 'platform';
+      }
+    } catch {
+      // ignore malformed persistence
+    }
+    return 'platform';
+  });
   const [dashboardActiveSection, setDashboardActiveSection] = useState<DashboardViewSection>('overview');
   const [dashboardData, setDashboardData] = useState<DashboardDataset>(defaultDashboardData);
   const [currentSignalDraft, setCurrentSignalDraft] = useState<Partial<CivicSignalSubmission> | null>(null);
@@ -81,12 +107,33 @@ export function App() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [representativeSection, setRepresentativeSection] = useState<RepresentativeSection>('dashboard');
-  const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(null);
+  const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(() => {
+    // Restore the authenticated session so the /resident portal survives
+    // full page reloads (the JWT lives in localStorage already).
+    try {
+      const raw = localStorage.getItem('civinest_user');
+      return raw ? (JSON.parse(raw) as AuthenticatedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('civinest_token'));
   const [accountData, setAccountData] = useState<{ fullName: string; email: string } | null>(null);
   const [representativeNotifications, setRepresentativeNotifications] = useState<NotificationItem[]>(
     () => loadNotifications()
   );
+  // Backend-driven representative data: community context + notifications.
+  const [repContext, setRepContext] = useState<{ community: string; ward: string; locality: string; city: string; name: string } | null>(null);
+  const repContextUserIdRef = useRef<string | null>(null);
+
+  // Persist the authenticated session alongside the JWT.
+  const persistAuthUser = (user: AuthenticatedUser | null) => {
+    if (user) {
+      localStorage.setItem('civinest_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('civinest_user');
+    }
+  };
 
   // Persist representative notification read-state locally (demo persistence).
   useEffect(() => {
@@ -114,8 +161,48 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const mapRepNotification = (n: CommunityNotificationItem): NotificationItem => ({
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    type: n.type,
+    timestamp: new Date(n.timestamp).toLocaleString(),
+    read: n.read,
+    relatedIssueId: n.relatedIssueId,
+    relatedSection: n.relatedSection as NotificationItem['relatedSection'],
+  });
+
+  // Load the representative's real profile + backend notifications once per
+  // authenticated user when entering the Community portal.
+  useEffect(() => {
+    const isRep = currentPage === 'community-representative';
+    const userId = authenticatedUser?.id || authToken;
+    if (!isRep || !userId || repContextUserIdRef.current === userId) return;
+    repContextUserIdRef.current = userId;
+    (async () => {
+      try {
+        const [{ profile }, notifRes] = await Promise.all([
+          getCommunityProfile(),
+          getCommunityNotifications(),
+        ]);
+        setRepContext({
+          community: profile.user.community,
+          ward: profile.user.ward,
+          locality: profile.user.locality,
+          city: profile.user.city,
+          name: profile.user.name,
+        });
+        setRepresentativeNotifications(notifRes.notifications.map(mapRepNotification));
+      } catch {
+        // Backend unavailable — the portal falls back to its neutral defaults.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, authenticatedUser?.id, authToken]);
+
   const handleSelectRepresentativeNotification = (notification: NotificationItem) => {
     setRepresentativeNotifications((prev) => markNotificationRead(prev, notification.id));
+    void markCommunityNotificationRead(notification.id).catch(() => {});
     if (notification.relatedSection) {
       setRepresentativeSection(notification.relatedSection);
     } else if (notification.relatedIssueId) {
@@ -126,6 +213,7 @@ export function App() {
 
   const handleMarkAllRepresentativeNotificationsRead = () => {
     setRepresentativeNotifications((prev) => markAllNotificationsRead(prev));
+    void markAllCommunityNotificationsRead().catch(() => {});
   };
 
   const handleViewAllRepresentativeNotifications = () => {
@@ -265,6 +353,7 @@ export function App() {
       hasCommunityRepRole: actualRoleId === 'community_rep',
     };
     setAuthenticatedUser(newUser);
+    persistAuthUser(newUser);
 
     // Persist auth token
     if (authData?.token) {
@@ -283,6 +372,11 @@ export function App() {
     }));
     setTimeout(() => {
       const targetPortal = ROLE_PORTAL_MAP[actualRoleId];
+      // The app portal renders for any pathname except /resident and /auth;
+      // move off the auth URL so the selected portal actually displays.
+      if (window.location.pathname.startsWith('/auth')) {
+        window.history.pushState({}, '', '/');
+      }
       if (targetPortal === 'municipal') {
         setCurrentPage('municipal');
       } else if (targetPortal === 'community') {
@@ -291,7 +385,8 @@ export function App() {
       } else if (targetPortal === 'admin') {
         setCurrentPage('municipal');
       } else {
-        setCurrentPage('dashboard');
+        // Residents land directly in the Resident Portal
+        window.location.href = '/resident/dashboard';
       }
     }, 800);
   };
@@ -315,7 +410,7 @@ export function App() {
       } else if (targetPortal === 'admin') {
         setCurrentPage('municipal');
       } else {
-        setCurrentPage('dashboard');
+        window.location.href = '/resident/dashboard';
       }
     }, 800);
   };
@@ -455,16 +550,26 @@ export function App() {
             authenticatedUser={authenticatedUser || undefined}
             onSignOut={() => {
               setAuthenticatedUser(null);
+              persistAuthUser(null);
               setAuthToken(null);
               localStorage.removeItem('civinest_token');
               setCurrentPage('platform');
             }}
           />
         } />
+        {/* Login reachable as a real URL (the resident router redirects here) */}
+        <Route path="/auth" element={
+          <AuthPage
+            onBackToCiviNest={() => handleSelectPage('platform')}
+            onNavigateToOnboarding={() => handleSelectPage('onboarding')}
+            onNavigateToCreateAccount={() => handleSelectPage('create-account')}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        } />
       </Routes>
 
-      {/* Existing app content — only show when not on /resident routes */}
-      {!window.location.pathname.startsWith('/resident') && (
+      {/* Existing app content — only show when not on /resident or /auth routes */}
+      {!window.location.pathname.startsWith('/resident') && !window.location.pathname.startsWith('/auth') && (
       <>
       {/* 1. PUBLIC NAVIGATION CONTEXT (Only on Platform & How It Works) */}
       {isPublicContext && (
@@ -514,6 +619,7 @@ export function App() {
           }}
           onSignOut={() => {
             setAuthenticatedUser(null);
+            persistAuthUser(null);
             setAuthToken(null);
             localStorage.removeItem('civinest_token');
             setCurrentPage('platform');
@@ -528,8 +634,8 @@ export function App() {
         <RepresentativeShell
           activeSection={representativeSection}
           onSelectSection={setRepresentativeSection}
-          communityName="Green Valley Residency"
-          wardName="Ward 12, Nagpur"
+          communityName={repContext?.community || 'Green Valley Residency'}
+          wardName={repContext ? [repContext.ward, repContext.city].filter(Boolean).join(', ') : 'Ward 12, Nagpur'}
           authenticatedUser={authenticatedUser || undefined}
           notifications={representativeNotifications}
           onSelectNotification={handleSelectRepresentativeNotification}
@@ -537,12 +643,25 @@ export function App() {
           onViewAllNotifications={handleViewAllRepresentativeNotifications}
           onSignOut={() => {
             setAuthenticatedUser(null);
+            persistAuthUser(null);
+            setAuthToken(null);
+            localStorage.removeItem('civinest_token');
+            setRepContext(null);
+            repContextUserIdRef.current = null;
+            setRepresentativeNotifications(loadNotifications());
             setCurrentPage('platform');
             showToast('Signed out of Community Representative portal.');
           }}
         >
-          {representativeSection === 'dashboard' && <CommunityDashboard />}
-          {representativeSection === 'issues' && <CommunityIssues />}
+          {representativeSection === 'dashboard' && (
+            <CommunityDashboard
+              onNavigateToIssues={() => setRepresentativeSection('issues')}
+              onNavigateToAggregation={() => setRepresentativeSection('aggregation')}
+            />
+          )}
+          {representativeSection === 'issues' && (
+            <CommunityIssues onNavigateToAggregation={() => setRepresentativeSection('aggregation')} />
+          )}
           {representativeSection === 'aggregation' && <IssueAggregation />}
           {representativeSection === 'members' && <CommunityMembers />}
           {representativeSection === 'analytics' && <CommunityAnalytics />}
@@ -744,6 +863,7 @@ export function App() {
           <MunicipalPortal
             onSwitchToCitizenView={() => {
               setAuthenticatedUser(null);
+              persistAuthUser(null);
               setAuthToken(null);
               localStorage.removeItem('civinest_token');
               handleSelectPage('dashboard');
@@ -787,6 +907,7 @@ export function App() {
                 hasCommunityRepRole: frontendRoleId === 'community_rep',
               };
               setAuthenticatedUser(newUser);
+              persistAuthUser(newUser);
 
               showToast(`Account created for ${data.fullName}. Let's set up your civic profile.`);
 
